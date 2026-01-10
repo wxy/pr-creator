@@ -20,6 +20,7 @@ A minimal, dependency-light skill to automate Pull Request creation with semanti
 - macOS or Linux
 - `git` and `gh` (GitHub CLI) installed and authenticated
 - No additional dependencies (uses only shell + `sed`)
+ - Recommended to install and update via OpenSkills from remote repo (wxy/pr-creator)
 
 ## Quick Start
 
