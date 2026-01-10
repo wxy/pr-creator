@@ -99,6 +99,7 @@ git diff --stat origin/master..HEAD
 ## Installation & Version Control Notes
 
 - Installed skills are placed under `.claude/skills/` and are installation artifacts; do not commit them to git. The repository includes `.gitignore` rules to exclude `.claude/`.
+- Universal installs (shared across projects) use `.agent/skills/`. These are also installation artifacts and excluded from version control.
 - The source of truth is the remote repository `wxy/pr-creator`. Re-run `openskills install wxy/pr-creator -y` and `openskills sync -y` after updates to stay current.
 
 8. Rename branch (optional):
