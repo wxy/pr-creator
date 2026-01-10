@@ -40,3 +40,4 @@ npm-debug.log*
 
 # OpenSkills installed skills (not version controlled)
 .claude/
+.agent/skills/
