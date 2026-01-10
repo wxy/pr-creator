@@ -118,6 +118,19 @@ The script looks for version information in `manifest.json`:
 
 If no version is found, it defaults to `0.1.0`.
 
+### OpenSkills Installation & Version Control
+
+- Install from remote to stay up-to-date:
+
+  ```bash
+  openskills install wxy/pr-creator -y
+  openskills sync -y
+  ```
+
+- Installed skills are placed under `.claude/skills/` and are considered build/install artifacts. They should not be committed to git. The repository includes `.gitignore` rules to exclude `.claude/`.
+
+- The source of truth is the remote repository (wxy/pr-creator). Re-run installation after pulling changes to update local skills.
+
 ## File Structure
 
 ```
