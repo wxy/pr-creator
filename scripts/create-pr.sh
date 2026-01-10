@@ -18,7 +18,7 @@ check_existing_pr() {
 
 latest_version_from_manifest() {
   if [[ -f manifest.json ]]; then
-    sed -n 's/.*"version"\s*:\s*"\([0-9]\+\.[0-9]\+\.[0-9]\+\)".*/\1/p' manifest.json | head -1
+    sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/p' manifest.json | head -1
   else
     echo "" 
   fi
@@ -49,7 +49,7 @@ apply_manifest_bump() {
     warn "manifest.json not found; skipping version update"
     return 0
   fi
-  sed -i.bak "s/\("version"\s*:\s*\)\"${from}\"/\1\"${to}\"/" manifest.json
+  sed -i.bak "s/\"version\"[[:space:]]*:[[:space:]]*\"${from}\"/\"version\": \"${to}\"/" manifest.json
   rm -f manifest.json.bak
 }
 
@@ -126,6 +126,7 @@ fi
 
 # 5) Generate PR description - use templates from references/
 # Temporary file stored in .github but NOT committed to git
+mkdir -p .github
 PR_TEMP_FILE=".github/.pr_description_tmp.md"
 PR_TEMPLATE="references/pull_request_template.md"
 [[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pull_request_template.md"  # fallback
