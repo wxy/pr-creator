@@ -35,5 +35,5 @@ coverage/
 *.log
 npm-debug.log*
 
-# Generated PR descriptions
-.github/PR_DESCRIPTION.md
+# Generated PR descriptions (temporary files during script execution)
+.github/.pr_description_tmp.md

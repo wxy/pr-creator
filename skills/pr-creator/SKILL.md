@@ -92,7 +92,8 @@ git diff --stat origin/master..HEAD
 - Create commit and push
 
 7. Generate PR description:
-- Use language-appropriate template from `.github/`
+- Use language-appropriate template from `.github/pull_request_template.md` or `.github/pull_request_template_zh.md`
+- Generate temporary file at `.github/.pr_description_tmp.md` (not committed to git)
 - Include version bump details and key changes
 
 8. Rename branch (optional):
@@ -100,8 +101,9 @@ git diff --stat origin/master..HEAD
 - `git branch -m <new>` and `git push --set-upstream origin <new>`
 
 9. Create or update PR via `gh`:
-   - **Create**: `gh pr create --title "..." --body-file /tmp/pr-description.md`
-   - **Update**: `gh pr edit <number> --body-file /tmp/pr-description.md`
+   - **Create**: `gh pr create --title "..." --body-file .github/.pr_description_tmp.md`
+   - **Update**: `gh pr edit <number> --body-file .github/.pr_description_tmp.md`
+   - Temporary file is cleaned up after PR creation/update
 
 ## Minimal Script
 See `scripts/create-pr.sh` for an implementation using POSIX shell and `gh`.

@@ -125,16 +125,15 @@ if [[ "${RB}" =~ ^[Yy]$ ]]; then
 fi
 
 # 5) Generate PR description - use .github templates
-mkdir -p .github
-# Default to English template
+# Temporary file stored in .github but NOT committed to git
+PR_TEMP_FILE=".github/.pr_description_tmp.md"
 PR_TEMPLATE=".github/pull_request_template.md"
 [[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pr-template.md"  # fallback
 
-PR_FILE=/tmp/pr_description_$$.md
 if [[ -f "$PR_TEMPLATE" ]]; then
-  cp "$PR_TEMPLATE" "$PR_FILE"
+  cp "$PR_TEMPLATE" "$PR_TEMP_FILE"
 else
-  cat > "$PR_FILE" <<'EOF'
+  cat > "$PR_TEMP_FILE" <<'EOF'
 # PR Summary
 
 ## Overview
@@ -160,19 +159,19 @@ sed -i.bak \
   -e "s|X\.Y\.Z|${VER}|g" \
   -e "s|A\.B\.C|${FINAL_VER}|g" \
   -e "s|major/minor/patch|${SUG}|g" \
-  "$PR_FILE"
-rm -f "${PR_FILE}.bak"
+  "$PR_TEMP_FILE"
+rm -f "${PR_TEMP_FILE}.bak"
 
 # 6) Create or Update PR via gh
 if [[ "$PR_MODE" == "update" ]]; then
   bold "Updating PR #$EXISTING_PR..."
-  gh pr edit "$EXISTING_PR" --body-file "$PR_FILE" || { err "gh pr edit failed"; exit 1; }
+  gh pr edit "$EXISTING_PR" --body-file "$PR_TEMP_FILE" || { err "gh pr edit failed"; exit 1; }
   info "PR #$EXISTING_PR updated successfully"
 else
   bold "Creating PR via gh..."
-  GH_ARGS=(--title "$PR_TITLE" --body-file "$PR_FILE" --base master)
+  GH_ARGS=(--title "$PR_TITLE" --body-file "$PR_TEMP_FILE" --base master)
   gh pr create "${GH_ARGS[@]}" || { err "gh pr create failed"; exit 1; }
   info "PR created successfully"
 fi
 
-rm -f "$PR_FILE"
+rm -f "$PR_TEMP_FILE"
