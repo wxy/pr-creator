@@ -1,11 +1,46 @@
 ---
-name: pr-versioning
-description: A universal, dependency-light skill to create PRs, suggest and apply semantic version bumps (manifest.json for now), and optionally rename the current branch to match the PR title.
+name: pr-creator
+description: A minimal, dependency-light skill to create PRs with semantic versioning support, structured descriptions, and automatic branch renaming.
 ---
 
-# Universal PR + Versioning Skill
+# PR Creator Skill
 
 This skill automates PR creation with AI-guided semantic versioning and branch renaming.
+
+## Installation
+
+### Using OpenSkills
+
+```bash
+# Add this skill to your project
+openskills add pr-creator
+
+# Or install from a specific source
+openskills add github:your-org/pr-creator
+```
+
+### Manual Installation
+
+Clone this repository to your local skills directory or use the script directly.
+
+## Usage
+
+### With OpenSkills (Recommended)
+
+```bash
+# Use the skill in your project
+openskills use pr-creator "Create a PR"
+
+# Or trigger with specific commands
+openskills use pr-creator "Suggest version bump"
+openskills use pr-creator "Update version and open PR"
+```
+
+### Direct Script Execution
+
+```bash
+bash path/to/scripts/create-pr.sh
+```
 
 ## Triggers
 - "Create a PR"

@@ -1,0 +1,15 @@
+{
+  "name": "pr-creator",
+  "version": "1.2.0",
+  "description": "Automate PR creation with semantic versioning and branch management",
+  "author": "xingyu.wang",
+  "license": "MIT",
+  "keywords": ["pr", "pull-request", "versioning", "automation", "git"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/pr-creator"
+  },
+  "scripts": {
+    "create-pr": "bash scripts/create-pr.sh"
+  }
+}

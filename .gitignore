@@ -1,0 +1,39 @@
+# Backups and temporary files
+*.bak
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.swp
+
+# Node.js (if used in future)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Python (if used in future)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+
+# Test coverage
+coverage/
+.coverage
+
+# Logs
+*.log
+npm-debug.log*
+
+# Generated PR descriptions (temporary files during script execution)
+.github/.pr_description_tmp.md
