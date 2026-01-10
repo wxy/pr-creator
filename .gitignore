@@ -37,3 +37,7 @@ npm-debug.log*
 
 # Generated PR descriptions (temporary files during script execution)
 .github/.pr_description_tmp.md
+
+# OpenSkills installed skills (not version controlled)
+.claude/
+.agent/skills/

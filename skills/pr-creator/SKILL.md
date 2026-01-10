@@ -9,14 +9,14 @@ This skill automates PR creation with AI-guided semantic versioning and branch r
 
 ## Installation
 
-### Using OpenSkills
+### Using OpenSkills (Remote Install)
 
 ```bash
-# Add this skill to your project
-openskills add pr-creator
+# Install latest skill from remote repository
+openskills install wxy/pr-creator -y
 
-# Or install from a specific source
-openskills add github:your-org/pr-creator
+# Sync to AGENTS.md for conversation usage
+openskills sync -y
 ```
 
 ### Manual Installation
@@ -68,8 +68,8 @@ gh pr list --head $(git branch --show-current)
 
 2. **Detect user's language**:
    - Analyze recent conversation messages
-   - Chinese/中文 → use `.github/pull_request_template_zh.md`
-   - English/default → use `.github/pull_request_template.md`
+   - Chinese/中文 → use `references/pull_request_template_zh.md`
+   - English/default → use `references/pull_request_template.md`
 
 3. Gather changes:
 ```bash
@@ -92,9 +92,15 @@ git diff --stat origin/master..HEAD
 - Create commit and push
 
 7. Generate PR description:
-- Use language-appropriate template from `references/pull_request_template.md` or `references/pull_request_template_zh.md`
-- Generate temporary file at `.github/.pr_description_tmp.md` (not committed to git)
-- Include version bump details and key changes
+ - Use language-appropriate template from `references/pull_request_template.md` or `references/pull_request_template_zh.md`
+ - Generate temporary file at `.github/.pr_description_tmp.md` (not committed to git)
+ - Include version bump details and key changes
+
+## Installation & Version Control Notes
+
+- Installed skills are placed under `.claude/skills/` and are installation artifacts; do not commit them to git. The repository includes `.gitignore` rules to exclude `.claude/`.
+- Universal installs (shared across projects) use `.agent/skills/`. These are also installation artifacts and excluded from version control.
+- The source of truth is the remote repository `wxy/pr-creator`. Re-run `openskills install wxy/pr-creator -y` and `openskills sync -y` after updates to stay current.
 
 8. Rename branch (optional):
 - Derive slug from PR title
