@@ -92,7 +92,7 @@ git diff --stat origin/master..HEAD
 - Create commit and push
 
 7. Generate PR description:
-- Use language-appropriate template from `.github/pull_request_template.md` or `.github/pull_request_template_zh.md`
+- Use language-appropriate template from `references/pull_request_template.md` or `references/pull_request_template_zh.md`
 - Generate temporary file at `.github/.pr_description_tmp.md` (not committed to git)
 - Include version bump details and key changes
 

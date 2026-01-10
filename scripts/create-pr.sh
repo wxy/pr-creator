@@ -124,11 +124,11 @@ if [[ "${RB}" =~ ^[Yy]$ ]]; then
   info "Branch renamed to $CBR"
 fi
 
-# 5) Generate PR description - use .github templates
+# 5) Generate PR description - use templates from references/
 # Temporary file stored in .github but NOT committed to git
 PR_TEMP_FILE=".github/.pr_description_tmp.md"
-PR_TEMPLATE=".github/pull_request_template.md"
-[[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pr-template.md"  # fallback
+PR_TEMPLATE="references/pull_request_template.md"
+[[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pull_request_template.md"  # fallback
 
 if [[ -f "$PR_TEMPLATE" ]]; then
   cp "$PR_TEMPLATE" "$PR_TEMP_FILE"

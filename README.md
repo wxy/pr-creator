@@ -98,9 +98,9 @@ Follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](ht
 
 ### PR Templates
 
-The tool uses PR templates from the `.github/` directory:
-- `.github/pull_request_template.md` - English template (default)
-- `.github/pull_request_template_zh.md` - Chinese template
+The tool uses PR templates from the `references/` directory (following skill convention):
+- `references/pull_request_template.md` - English template (default)
+- `references/pull_request_template_zh.md` - Chinese template
 
 When using via OpenSkills with AI conversation, the appropriate template is automatically selected based on your conversation language.
 
@@ -122,6 +122,8 @@ If no version is found, it defaults to `0.1.0`.
 ```
 pr-creator/
 ├── .github/
+│   └── .pr_description_tmp.md       # Temporary PR description (not committed)
+├── references/
 │   ├── pull_request_template.md     # English PR template
 │   └── pull_request_template_zh.md  # Chinese PR template
 ├── scripts/
