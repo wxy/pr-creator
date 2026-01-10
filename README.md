@@ -7,7 +7,10 @@ A minimal, dependency-light skill to automate Pull Request creation with semanti
 - ✅ Analyze commits and suggest semantic version bumps
 - ✅ Support for `manifest.json` version updates
 - ✅ Interactive version confirmation (accept/adjust/skip)
-- ✅ Structured PR descriptions from templates
+- ✅ **Multi-language PR templates** (English/中文)
+- ✅ **Automatic language detection** from conversation context
+- ✅ **Smart PR update**: Updates existing PR instead of creating duplicates
+- ✅ Structured PR descriptions from templates in `.github/`
 - ✅ Automatic branch renaming to match PR title
 - ✅ Zero external dependencies (POSIX shell + `sed`)
 - ✅ Works on macOS and Linux
@@ -47,13 +50,14 @@ bash path/to/pr-creator/scripts/create-pr.sh
 ```
 
 The script will:
-1. Analyze commits since `origin/master`
-2. Suggest a semantic version bump (major/minor/patch)
-3. Prompt you to confirm or adjust the version
-4. Update `manifest.json` version (if present)
-5. Prompt for a PR title and generate a description
-6. Optionally rename the current branch to match the PR title
-7. Create a PR via `gh` CLI
+1. **Check for existing PR** on the current branch
+2. Analyze commits since `origin/master`
+3. Suggest a semantic version bump (major/minor/patch)
+4. Prompt you to confirm or adjust the version
+5. Update `manifest.json` version (if present)
+6. Prompt for a PR title and select appropriate language template
+7. Optionally rename the current branch to match the PR title
+8. **Create a new PR or update existing PR** via `gh` CLI
 
 ## Workflow Example
 
@@ -92,6 +96,16 @@ Follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](ht
 
 ## Configuration
 
+### PR Templates
+
+The tool uses PR templates from the `.github/` directory:
+- `.github/pull_request_template.md` - English template (default)
+- `.github/pull_request_template_zh.md` - Chinese template
+
+When using via OpenSkills with AI conversation, the appropriate template is automatically selected based on your conversation language.
+
+### Version Configuration
+
 The script looks for version information in `manifest.json`:
 
 ```json
@@ -107,16 +121,19 @@ If no version is found, it defaults to `0.1.0`.
 
 ```
 pr-creator/
+├── .github/
+│   ├── pull_request_template.md     # English PR template
+│   └── pull_request_template_zh.md  # Chinese PR template
 ├── scripts/
-│   └── create-pr.sh          # Main script
+│   └── create-pr.sh                 # Main script
 ├── skills/
 │   └── pr-creator/
-│       └── SKILL.md          # Skill documentation
-├── references/
-│   └── pr-template.md        # PR description template
-├── README.md                 # This file
-├── LICENSE                   # MIT license
-└── CONTRIBUTING.md           # Contribution guidelines
+│       └── SKILL.md                 # Skill documentation
+├── references/                      # Additional reference files
+├── README.md                        # This file
+├── AGENTS.md                        # OpenSkills integration
+├── LICENSE                          # MIT license
+└── CONTRIBUTING.md                  # Contribution guidelines
 ```
 
 ## Contributing

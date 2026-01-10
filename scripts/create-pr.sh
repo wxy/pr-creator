@@ -10,6 +10,12 @@ warn() { printf "[WARN] %s\n" "$1"; }
 err()  { printf "[ERROR] %s\n" "$1"; }
 
 current_branch() { git rev-parse --abbrev-ref HEAD; }
+
+check_existing_pr() {
+  local branch="$1"
+  gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo ""
+}
+
 latest_version_from_manifest() {
   if [[ -f manifest.json ]]; then
     sed -n 's/.*"version"\s*:\s*"\([0-9]\+\.[0-9]\+\.[0-9]\+\)".*/\1/p' manifest.json | head -1
@@ -51,9 +57,20 @@ slugify() {
   echo "$1" | tr 'A-Z' 'a-z' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
-# 1) Analyze
-bold "Analyzing commits and current version..."
+# 1) Check for existing PR
+bold "Checking for existing PR..."
 CBR="$(current_branch)"
+EXISTING_PR="$(check_existing_pr "$CBR")"
+if [[ -n "$EXISTING_PR" ]]; then
+  info "Found existing PR #$EXISTING_PR on branch $CBR"
+  PR_MODE="update"
+else
+  info "No existing PR found; will create new PR"
+  PR_MODE="create"
+fi
+
+# 2) Analyze
+bold "Analyzing commits and current version..."
 VER="$(latest_version_from_manifest)"
 [[ -z "$VER" ]] && VER="0.1.0" && warn "No version found in manifest.json; defaulting to $VER"
 info "Current branch: $CBR"
@@ -107,38 +124,55 @@ if [[ "${RB}" =~ ^[Yy]$ ]]; then
   info "Branch renamed to $CBR"
 fi
 
-# 5) Generate PR description
+# 5) Generate PR description - use .github templates
 mkdir -p .github
-PR_FILE=.github/PR_DESCRIPTION.md
-cat > "$PR_FILE" <<EOF
+# Default to English template
+PR_TEMPLATE=".github/pull_request_template.md"
+[[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pr-template.md"  # fallback
+
+PR_FILE=/tmp/pr_description_$$.md
+if [[ -f "$PR_TEMPLATE" ]]; then
+  cp "$PR_TEMPLATE" "$PR_FILE"
+else
+  cat > "$PR_FILE" <<'EOF'
 # PR Summary
 
 ## Overview
-$PR_TITLE
+Brief description of the purpose and impact of this PR.
 
 ## Changes
-- See commit history since origin/master
+- Key changes listed here
 
 ## Versioning
-- Current version: $VER
-- Suggested bump: $SUG
-- Final decision: $FINAL_VER ($FINAL_LEVEL)
+- Version information
 
 ## Testing
-- Ensure tests pass (if applicable)
-
-## Impact
-- Breaking changes: $(git log origin/master..HEAD --format="%s" | grep -Eiq '(BREAKING CHANGE|!:)' && echo yes || echo no)
+- [ ] Tests completed
 
 ## Checklist
-- [x] Version updated (if applicable)
-- [x] Description present
-- [x] Ready for review
+- [ ] Ready for review
 EOF
+fi
 
-# 6) Create PR via gh
-bold "Creating PR via gh..."
-GH_ARGS=(--title "$PR_TITLE" --body-file "$PR_FILE" --base master)
-# auto-detect head branch
-gh pr create "${GH_ARGS[@]}" || { err "gh pr create failed"; exit 1; }
-info "PR created successfully"
+# Insert actual values
+sed -i.bak \
+  -e "s|Brief description.*|${PR_TITLE}|" \
+  -e "s|X\.Y\.Z|${VER}|g" \
+  -e "s|A\.B\.C|${FINAL_VER}|g" \
+  -e "s|major/minor/patch|${SUG}|g" \
+  "$PR_FILE"
+rm -f "${PR_FILE}.bak"
+
+# 6) Create or Update PR via gh
+if [[ "$PR_MODE" == "update" ]]; then
+  bold "Updating PR #$EXISTING_PR..."
+  gh pr edit "$EXISTING_PR" --body-file "$PR_FILE" || { err "gh pr edit failed"; exit 1; }
+  info "PR #$EXISTING_PR updated successfully"
+else
+  bold "Creating PR via gh..."
+  GH_ARGS=(--title "$PR_TITLE" --body-file "$PR_FILE" --base master)
+  gh pr create "${GH_ARGS[@]}" || { err "gh pr create failed"; exit 1; }
+  info "PR created successfully"
+fi
+
+rm -f "$PR_FILE"

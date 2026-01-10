@@ -52,34 +52,56 @@ bash path/to/scripts/create-pr.sh
 - Suggest a semantic version bump: major > minor > patch
 - Prompt the user to accept/adjust/skip the bump
 - Update `manifest.json` version (if present)
-- Generate a structured PR description (see references/pr-template.md)
+- **Detect user's conversation language** and use appropriate PR template
+- Generate a structured PR description (see `.github/pull_request_template.md` or `pull_request_template_zh.md`)
+- **Check for existing PR** on current branch and update instead of creating new one
 - Rename current branch to match the PR title (optional)
-- Create PR via `gh`
+- Create or update PR via `gh`
 
 ## Workflow
-1. Gather changes:
+1. **Check for existing PR**:
+```bash
+gh pr list --head $(git branch --show-current)
+```
+   - If PR exists → update mode (edit PR description)
+   - If no PR exists → create mode
+
+2. **Detect user's language**:
+   - Analyze recent conversation messages
+   - Chinese/中文 → use `.github/pull_request_template_zh.md`
+   - English/default → use `.github/pull_request_template.md`
+
+3. Gather changes:
 ```bash
 git log origin/master..HEAD --format="%h %s"
 git diff --stat origin/master..HEAD
 ```
-2. Decide bump:
+
+4. Decide bump:
 - BREAKING or `!` in commits → major
 - Any `feat:` → minor
 - Otherwise → patch
-3. Confirm with user:
+
+5. Confirm with user:
 - Accept suggestion
 - Try alternative level
 - Skip bump
-4. Apply bump (if confirmed):
+
+6. Apply bump (if confirmed):
 - Update `manifest.json` version via sed
 - Create commit and push
-5. Generate PR description:
-- Use `references/pr-template.md`
+
+7. Generate PR description:
+- Use language-appropriate template from `.github/`
 - Include version bump details and key changes
-6. Rename branch (optional):
+
+8. Rename branch (optional):
 - Derive slug from PR title
 - `git branch -m <new>` and `git push --set-upstream origin <new>`
-7. Create PR via `gh`.
+
+9. Create or update PR via `gh`:
+   - **Create**: `gh pr create --title "..." --body-file /tmp/pr-description.md`
+   - **Update**: `gh pr edit <number> --body-file /tmp/pr-description.md`
 
 ## Minimal Script
 See `scripts/create-pr.sh` for an implementation using POSIX shell and `gh`.
