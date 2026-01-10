@@ -1,7 +1,7 @@
 # PR Summary
 
 ## Overview
-Briefly describe the purpose and impact of this PR.
+Brief description of the purpose and impact of this PR.
 
 ## Changes
 - Key feature 1
@@ -14,14 +14,21 @@ Briefly describe the purpose and impact of this PR.
 - Final decision: A.B.C
 
 ## Testing
-- Unit tests
-- Manual checks
+- [ ] Unit tests pass
+- [ ] Manual verification completed
+- [ ] No breaking changes to existing functionality
 
 ## Impact
 - User-facing changes: yes/no
 - Breaking changes: yes/no
+- Performance impact: none/minor/significant
 
 ## Checklist
 - [ ] Version updated (if applicable)
 - [ ] Tests pass
-- [ ] Description clear
+- [ ] Description clear and comprehensive
+- [ ] Branch renamed to match PR title
+- [ ] Related issues linked
+
+## Notes
+Add any additional notes or context for reviewers here.

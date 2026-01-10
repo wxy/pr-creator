@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Universal PR + Versioning (manifest.json) + Branch rename
+# PR Creator: Automate PR creation with semantic versioning and branch management
 # Dependencies: git, gh, sed
 
 bold() { printf "\033[1m%s\033[0m\n" "$1"; }
