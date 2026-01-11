@@ -93,8 +93,8 @@ git diff --stat origin/master..HEAD
 
 4. Decide bump:
 - BREAKING or `!` in commits → major
-- Any `feat:` → minor
-- Otherwise → patch
+- 2+ `feat:` commits → minor (multiple user-facing features)
+- Single `feat:` or `fix`/`refactor`/`docs`/`style`/`perf` → patch
 
 5. Confirm with user:
 - Accept suggestion
