@@ -1,4 +1,4 @@
-# PR 摘要
+> 🤖 _本 PR 由 [PR Creator AI Skill](https://github.com/wxy/pr-creator) 自动生成_
 
 ## 概述
 简要描述此 PR 的目的和影响。
