@@ -175,13 +175,32 @@ Brief description of the purpose and impact of this PR.
 EOF
 fi
 
+# Localize dynamic bump label for template content
+localized_bump() {
+  local level="$1" lang="$2"
+  case "$lang" in
+    zh)
+      case "$level" in
+        major) echo "主版本";;
+        minor) echo "次版本";;
+        patch) echo "修订";;
+        *) echo "$level";;
+      esac
+      ;;
+    *)
+      echo "$level"
+      ;;
+  esac
+}
+L10N_SUG="$(localized_bump "$SUG" "$PR_LANG_DETECTED")"
+
 # Insert actual values
 sed -i.bak \
   -e "s|Brief description.*|${PR_TITLE}|" \
   -e "s|简要描述.*|${PR_TITLE}|" \
   -e "s|X\.Y\.Z|${VER}|g" \
   -e "s|A\.B\.C|${FINAL_VER}|g" \
-  -e "s|major/minor/patch|${SUG}|g" \
+  -e "s|major/minor/patch|${L10N_SUG}|g" \
   "$PR_TEMP_FILE"
 rm -f "${PR_TEMP_FILE}.bak"
 
