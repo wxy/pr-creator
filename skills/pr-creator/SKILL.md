@@ -42,6 +42,20 @@ openskills use pr-creator "Update version and open PR"
 bash path/to/scripts/create-pr.sh
 ```
 
+### Conversation Language → Template
+
+When invoked via OpenSkills, set the language based on the conversation:
+
+```bash
+# Chinese conversation
+PR_LANG=zh bash scripts/create-pr.sh
+
+# Or pass via CLI flag
+bash scripts/create-pr.sh --lang zh
+```
+
+OpenSkills integrators should propagate the chat language (e.g., "创建 PR") to `PR_LANG` or `--lang` so the script uses `references/pull_request_template_zh.md`.
+
 ## Triggers
 - "Create a PR"
 - "Suggest version bump"
