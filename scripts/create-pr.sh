@@ -111,6 +111,16 @@ fi
 bold "Prepare PR information"
 read -r -p "PR Title: " PR_TITLE
 PR_SLUG="$(slugify "$PR_TITLE")"
+# Parse optional language flag from CLI
+PR_LANG_ARG=""
+for arg in "$@"; do
+  case "$arg" in
+    --lang=*) PR_LANG_ARG="${arg#*=}" ; shift ;;
+    --lang)   shift; PR_LANG_ARG="${1:-}" ; shift ;;
+    -l)       PR_LANG_ARG="${1:-}" ; shift ;;
+  esac
+done
+
 
 # 4) Optional branch rename to match PR title
 read -r -p "Rename branch to 'pr/${PR_SLUG}'? [y/N]: " RB
@@ -132,9 +142,14 @@ PR_TEMP_FILE=".github/.pr_description_tmp.md"
 # Detect language from explicit env var first, then system locale
 detect_language() {
   local lang
-  lang="${PR_LANG:-}"
+  # Priority: explicit CLI arg > env PR_LANG > LC_ALL/LC_MESSAGES > LANG
+  if [[ -n "$PR_LANG_ARG" ]]; then
+    lang="$PR_LANG_ARG"
+  else
+    lang="${PR_LANG:-}"
+  fi
   if [[ -z "$lang" ]]; then
-    lang="${LANG:-}"
+    lang="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
   fi
   if echo "$lang" | grep -Eiq 'zh|zh_CN|zh-CN|Chinese|中文'; then
     echo zh
