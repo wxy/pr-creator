@@ -42,6 +42,20 @@ openskills use pr-creator "Update version and open PR"
 bash path/to/scripts/create-pr.sh
 ```
 
+### Conversation Language → Template
+
+When invoked via OpenSkills, set the language based on the conversation:
+
+```bash
+# Chinese conversation
+PR_LANG=zh bash scripts/create-pr.sh
+
+# Or pass via CLI flag
+bash scripts/create-pr.sh --lang zh
+```
+
+OpenSkills integrators should propagate the chat language (e.g., "创建 PR") to `PR_LANG` or `--lang` so the script uses `references/pull_request_template_zh.md`.
+
 ## Triggers
 - "Create a PR"
 - "Suggest version bump"
@@ -93,8 +107,13 @@ git diff --stat origin/master..HEAD
 
 7. Generate PR description:
  - Use language-appropriate template from `references/pull_request_template.md` or `references/pull_request_template_zh.md`
+ - **IMPORTANT**: Generate all dynamic content (Overview, Changes, Notes) in the **same language as the conversation**
+   - Chinese conversation → Use zh template + generate content in Chinese
+   - English conversation → Use en template + generate content in English
+   - Other languages → Use en template + generate content in conversation language
  - Generate temporary file at `.github/.pr_description_tmp.md` (not committed to git)
  - Include version bump details and key changes
+ - Replace placeholders: version numbers (X.Y.Z, A.B.C), bump level (localized), overview line
 
 ## Installation & Version Control Notes
 

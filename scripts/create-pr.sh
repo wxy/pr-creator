@@ -111,6 +111,16 @@ fi
 bold "Prepare PR information"
 read -r -p "PR Title: " PR_TITLE
 PR_SLUG="$(slugify "$PR_TITLE")"
+# Parse optional language flag from CLI
+PR_LANG_ARG=""
+for arg in "$@"; do
+  case "$arg" in
+    --lang=*) PR_LANG_ARG="${arg#*=}" ; shift ;;
+    --lang)   shift; PR_LANG_ARG="${1:-}" ; shift ;;
+    -l)       PR_LANG_ARG="${1:-}" ; shift ;;
+  esac
+done
+
 
 # 4) Optional branch rename to match PR title
 read -r -p "Rename branch to 'pr/${PR_SLUG}'? [y/N]: " RB
@@ -128,8 +138,39 @@ fi
 # Temporary file stored in .github but NOT committed to git
 mkdir -p .github
 PR_TEMP_FILE=".github/.pr_description_tmp.md"
-PR_TEMPLATE="references/pull_request_template.md"
-[[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pull_request_template.md"  # fallback
+
+# Detect language from explicit env var first, then system locale
+detect_language() {
+  local lang
+  # Priority: explicit CLI arg > env PR_LANG > LC_ALL/LC_MESSAGES > LANG
+  if [[ -n "$PR_LANG_ARG" ]]; then
+    lang="$PR_LANG_ARG"
+  else
+    lang="${PR_LANG:-}"
+  fi
+  if [[ -z "$lang" ]]; then
+    lang="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+  fi
+  if echo "$lang" | grep -Eiq 'zh|zh_CN|zh-CN|Chinese|中文'; then
+    echo zh
+  else
+    echo en
+  fi
+}
+
+PR_LANG_DETECTED="$(detect_language)"
+if [[ "$PR_LANG_DETECTED" == "zh" ]]; then
+  PR_TEMPLATE="references/pull_request_template_zh.md"
+else
+  PR_TEMPLATE="references/pull_request_template.md"
+fi
+
+# Always fallback to English template if language-specific template doesn't exist
+if [[ ! -f "$PR_TEMPLATE" ]]; then
+  warn "Template $PR_TEMPLATE not found, using English template as fallback"
+  PR_TEMPLATE="references/pull_request_template.md"
+fi
+info "Using PR template: $PR_TEMPLATE (lang=$PR_LANG_DETECTED)"
 
 if [[ -f "$PR_TEMPLATE" ]]; then
   cp "$PR_TEMPLATE" "$PR_TEMP_FILE"
@@ -154,12 +195,32 @@ Brief description of the purpose and impact of this PR.
 EOF
 fi
 
+# Localize dynamic bump label for template content
+localized_bump() {
+  local level="$1" lang="$2"
+  case "$lang" in
+    zh)
+      case "$level" in
+        major) echo "主版本";;
+        minor) echo "次版本";;
+        patch) echo "修订";;
+        *) echo "$level";;
+      esac
+      ;;
+    *)
+      echo "$level"
+      ;;
+  esac
+}
+L10N_SUG="$(localized_bump "$SUG" "$PR_LANG_DETECTED")"
+
 # Insert actual values
 sed -i.bak \
   -e "s|Brief description.*|${PR_TITLE}|" \
+  -e "s|简要描述.*|${PR_TITLE}|" \
   -e "s|X\.Y\.Z|${VER}|g" \
   -e "s|A\.B\.C|${FINAL_VER}|g" \
-  -e "s|major/minor/patch|${SUG}|g" \
+  -e "s|major/minor/patch|${L10N_SUG}|g" \
   "$PR_TEMP_FILE"
 rm -f "${PR_TEMP_FILE}.bak"
 
