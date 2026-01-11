@@ -26,8 +26,24 @@ latest_version_from_manifest() {
 
 suggest_bump() {
   local log; log=$(git log origin/master..HEAD --format="%s" || true)
-  if echo "$log" | grep -Eiq '(BREAKING CHANGE|!:)'; then echo major; return; fi
-  if echo "$log" | grep -Eiq '^feat:'; then echo minor; return; fi
+  
+  # Major: breaking changes
+  if echo "$log" | grep -Eiq '(BREAKING CHANGE|!:)'; then 
+    echo major
+    return
+  fi
+  
+  # Count feat commits
+  local feat_count
+  feat_count=$(echo "$log" | grep -Eic '^feat:' || echo 0)
+  
+  # Minor: 2+ feat commits (likely multiple user-facing features)
+  if [[ "$feat_count" -ge 2 ]]; then
+    echo minor
+    return
+  fi
+  
+  # Patch: single feat (likely UI tweak/internal improvement), fix, refactor, docs, etc.
   echo patch
 }
 
@@ -76,8 +92,28 @@ VER="$(latest_version_from_manifest)"
 info "Current branch: $CBR"
 info "Current version: $VER"
 
-SUG="$(suggest_bump)"; info "Suggested bump: $SUG"
-NEWVER="$(bump_version "$VER" "$SUG")"; info "Proposed version: $NEWVER"
+SUG="$(suggest_bump)"
+
+# Provide context for the suggestion
+echo
+bold "Version bump analysis"
+COMMIT_LOG=$(git log origin/master..HEAD --format="  - %s" || echo "  (no commits)")
+echo "Recent commits:"
+echo "$COMMIT_LOG"
+echo
+info "Suggested bump: $SUG"
+
+# Explain the reasoning
+case "$SUG" in
+  major)
+    info "Reason: Breaking changes detected (BREAKING CHANGE or !:)";;
+  minor)
+    info "Reason: Multiple new features detected (2+ feat: commits)";;
+  patch)
+    info "Reason: Bug fixes, single feature, or improvements";;
+esac
+
+NEWVER="$(bump_version "$VER" "$SUG")"; info "Proposed version: $VER → $NEWVER"
 
 echo
 bold "Confirm version bump"
