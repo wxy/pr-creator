@@ -105,6 +105,18 @@ The tool uses PR templates from the `references/` directory (following skill con
 
 When using via OpenSkills with AI conversation, the appropriate template is automatically selected based on your conversation language.
 
+You can also force the template selection via environment variables:
+
+- Set `PR_LANG=zh` to use the Chinese template explicitly.
+- Otherwise, the script falls back to the system locale `LANG` (e.g., `zh_CN`, `zh-CN`) to auto-detect Chinese; default is English.
+- Placeholders (`X.Y.Z`, `A.B.C`, `major/minor/patch`) are replaced in both templates; the overview line is replaced for English and Chinese.
+
+Example:
+
+```bash
+PR_LANG=zh bash scripts/create-pr.sh
+```
+
 ### Version Configuration
 
 The script looks for version information in `manifest.json`:
