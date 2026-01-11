@@ -128,7 +128,28 @@ fi
 # Temporary file stored in .github but NOT committed to git
 mkdir -p .github
 PR_TEMP_FILE=".github/.pr_description_tmp.md"
-PR_TEMPLATE="references/pull_request_template.md"
+
+# Detect language from explicit env var first, then system locale
+detect_language() {
+  local lang
+  lang="${PR_LANG:-}"
+  if [[ -z "$lang" ]]; then
+    lang="${LANG:-}"
+  fi
+  if echo "$lang" | grep -Eiq 'zh|zh_CN|zh-CN|Chinese|中文'; then
+    echo zh
+  else
+    echo en
+  fi
+}
+
+PR_LANG_DETECTED="$(detect_language)"
+if [[ "$PR_LANG_DETECTED" == "zh" ]]; then
+  PR_TEMPLATE="references/pull_request_template_zh.md"
+else
+  PR_TEMPLATE="references/pull_request_template.md"
+fi
+info "Using PR template: $PR_TEMPLATE (lang=$PR_LANG_DETECTED)"
 [[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pull_request_template.md"  # fallback
 
 if [[ -f "$PR_TEMPLATE" ]]; then
@@ -157,6 +178,7 @@ fi
 # Insert actual values
 sed -i.bak \
   -e "s|Brief description.*|${PR_TITLE}|" \
+  -e "s|简要描述.*|${PR_TITLE}|" \
   -e "s|X\.Y\.Z|${VER}|g" \
   -e "s|A\.B\.C|${FINAL_VER}|g" \
   -e "s|major/minor/patch|${SUG}|g" \
