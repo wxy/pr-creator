@@ -164,8 +164,13 @@ if [[ "$PR_LANG_DETECTED" == "zh" ]]; then
 else
   PR_TEMPLATE="references/pull_request_template.md"
 fi
+
+# Always fallback to English template if language-specific template doesn't exist
+if [[ ! -f "$PR_TEMPLATE" ]]; then
+  warn "Template $PR_TEMPLATE not found, using English template as fallback"
+  PR_TEMPLATE="references/pull_request_template.md"
+fi
 info "Using PR template: $PR_TEMPLATE (lang=$PR_LANG_DETECTED)"
-[[ -f "$PR_TEMPLATE" ]] || PR_TEMPLATE="references/pull_request_template.md"  # fallback
 
 if [[ -f "$PR_TEMPLATE" ]]; then
   cp "$PR_TEMPLATE" "$PR_TEMP_FILE"
