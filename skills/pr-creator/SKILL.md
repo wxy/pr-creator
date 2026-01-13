@@ -1,21 +1,18 @@
 ---
 name: pr-creator
-description: A minimal, dependency-light skill to create PRs with semantic versioning support, structured descriptions, and automatic branch renaming.
+description: AI-native skill to automate PR creation with semantic versioning and intelligent descriptions.
 ---
 
 # PR Creator Skill
 
-This skill automates PR creation with AI-guided semantic versioning and branch renaming.
+A minimal, intelligent skill that creates or updates pull requests with AI-generated titles, descriptions, and semantic versioning.
 
 ## Installation
 
-### Using OpenSkills (Remote Install)
+### Using OpenSkills (Recommended)
 
 ```bash
-# Install latest skill from remote repository
 openskills install wxy/pr-creator -y
-
-# Sync to AGENTS.md for conversation usage
 openskills sync -y
 ```
 
@@ -23,137 +20,169 @@ openskills sync -y
 
 Clone this repository to your local skills directory or use the script directly.
 
+## How It Works
+
+This is an **AI-first skill**. The AI assistant orchestrates the workflow:
+
+1. **Analyze** (AI does this internally):
+   - Run `git log` to get commits
+   - Detect commit types (feat, fix, BREAKING, etc.)
+   - Identify version file and current version
+   - Suggest semantic version bump
+
+2. **Generate** (AI does this):
+   - Create PR title from commit message or branch name
+   - Write comprehensive PR description
+   - Calculate new version number
+   - Determine bump level (major/minor/patch/skip)
+
+3. **Execute**:
+   ```bash
+   PR_BRANCH="feat/my-feature" \
+   PR_TITLE_AI="feat: add new feature" \
+   PR_BODY_AI="## What
+This PR adds..." \
+   VERSION_BUMP_AI="minor" \
+   CURRENT_VERSION="1.0.0" \
+   NEW_VERSION="1.1.0" \
+   VERSION_FILE="package.json" \
+   bash create-pr.sh
+   ```
+
 ## Usage
 
-### With OpenSkills (Recommended)
+### From OpenSkills (Recommended)
 
-After installation and sync, simply trigger the skill in conversation:
-
-**Trigger phrases**:
+Simply tell the AI in conversation:
 - "创建 PR" (Chinese)
 - "Create a PR" (English)
-- "Suggest version bump"
-- "Update version and open PR"
+- "Create PR for this feature"
+- "Open a pull request"
 
-The AI will automatically invoke this skill to help you create or update PRs.
+The AI will automatically invoke this skill to:
+1. Analyze your branch and commits
+2. Generate optimal PR title and description
+3. Determine semantic version bump
+4. Create/update the PR
+5. Report success
 
 ### Direct Script Execution
 
 ```bash
-# If installed via OpenSkills
-bash .claude/skills/pr-creator/scripts/create-pr.sh
-
-# Or from the repository
+# Set all decisions, then run
+PR_BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
+PR_TITLE_AI="feat: my feature" \
+PR_BODY_AI="..." \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="package.json" \
 bash skills/pr-creator/scripts/create-pr.sh
 ```
 
-### Conversation Language & Localization
-
-The skill automatically detects conversation language and generates PR content in the appropriate language:
-- **Chinese** (`PR_LANG=zh`): PR description in Chinese
-- **English** (default): PR description in English
-
-When invoked from OpenSkills, the AI assistant will generate all PR content in the conversation language.
-
 ## Capabilities
 
-- Analyze commits and detect change types (BREAKING/`!`, `feat`, `fix`, `refactor`, etc.)
-- Suggest a semantic version bump based on commits
-- Auto-detect version files (manifest.json, package.json, pyproject.toml, setup.py)
-- **AI-generated PR titles and descriptions** (no templates needed)
-- Automatic language detection for content generation
-- **Check for existing PR** and update instead of creating duplicates
-- Create or update PR via `gh` CLI (zero dependencies beyond git + gh)
+✅ **Commit Analysis**
+- Detects BREAKING CHANGE → major version
+- Counts `feat:` commits → minor version  
+- Single feature/fix → patch version
 
-## Workflow
+✅ **Multi-Project Support**
+- manifest.json (standard)
+- package.json (Node.js/Plasmo)
+- pyproject.toml (Python)
+- setup.py (Python)
 
-The PR creation is split into two phases for optimal AI decision-making:
+✅ **Smart PR Management**
+- Detects existing PR on branch
+- Updates instead of creating duplicates
+- Creates new PR if none exists
 
-### Phase 1: Analyze (`create-pr-analyze.sh`)
+✅ **Pure AI Decisions**
+- No templates, no placeholders
+- AI generates complete, contextual descriptions
+- Supports any language (via AI generation)
+- No user interaction required
 
-1. **Check for existing PR** on current branch
-2. **Analyze commits** since `origin/master`
-   - Detect change types (BREAKING, feat, fix, etc.)
-   - Suggest semantic version bump
-3. **Output analysis** in key=value format
-   - Current branch, version, proposed version
-   - Recent commit messages
-   - Suggested version bump level
+## Workflow (AI Perspective)
 
-### Phase 2: Apply (`create-pr-apply.sh`)
-
-Applies AI-generated decisions to create/update PR:
-
-1. **Validate inputs** - Check for required AI variables
-2. **Update version** (if not skipped)
-   - Detect and update version file (manifest.json, package.json, pyproject.toml, setup.py)
-   - Create commit and push
-3. **Create or update PR** via `gh` CLI
-   - If PR exists on branch → update body
-   - Otherwise → create new PR with title and body
-4. **Clean up** - Remove temporary files
-
-### Wrapper Script (`create-pr.sh` - backward compatible)
-
-Orchestrates both phases:
-
-1. Run analyze phase
-2. Either:
-   - Use AI-provided decisions (PR_TITLE_AI, PR_BODY_AI, VERSION_BUMP_AI)
-   - Or prompt user for confirmation
-3. Run apply phase with final decisions
-
-## AI Integration
-
-The skill is now split into two phases for optimal AI decision-making:
-
-**Phase 1: Analyze** (`create-pr-analyze.sh`)
-```bash
-bash create-pr-analyze.sh
-# Outputs: branch, version, suggested bump, recent commits
-# AI reads this to understand what changes are being proposed
+```
+User: "Create a PR"
+  ↓
+AI: Analyze branch
+  - git log origin/master..HEAD
+  - Detect version file and version
+  - Analyze commit types
+  ↓
+AI: Generate decisions
+  - PR_TITLE_AI from latest commit
+  - PR_BODY_AI with detailed description
+  - VERSION_BUMP_AI based on commits
+  ↓
+AI: Execute script
+  bash create-pr.sh (with all env vars)
+  ↓
+Script: Apply changes
+  1. Update version file (if bump != skip)
+  2. Create/update PR via gh CLI
+  3. Report success
+  ↓
+Done! PR created/updated
 ```
 
-**Phase 2: Apply** (`create-pr-apply.sh`)
-```bash
-PR_TITLE_AI="Your title" \
-PR_BODY_AI="Your body" \
-VERSION_BUMP_AI="minor" \
-NEW_VERSION="1.5.0" \
-bash create-pr-apply.sh
-# Uses AI decisions to create/update PR with zero interaction
-```
+## Environment Variables
 
-**Unified Workflow** (`create-pr.sh` - backward compatible)
-```bash
-# Interactive mode
-bash create-pr.sh
-# Prompts user for decisions
+Required for script execution:
 
-# Autonomous AI mode (set environment variables first)
-PR_TITLE_AI="..." PR_BODY_AI="..." VERSION_BUMP_AI="minor" bash create-pr.sh
-```
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `PR_BRANCH` | Current branch | `feat/new-feature` |
+| `PR_TITLE_AI` | PR title | `feat: add auth` |
+| `PR_BODY_AI` | PR description | `## Overview...` |
+| `VERSION_BUMP_AI` | Version action | `minor`, `patch`, `skip` |
+| `CURRENT_VERSION` | Before version | `1.0.0` |
+| `NEW_VERSION` | After version | `1.1.0` |
+| `VERSION_FILE` | Version location | `package.json` |
 
-### Usage from OpenSkills
+## Technical Details
 
-When invoked from conversation, the AI assistant will:
-1. Run `create-pr-analyze.sh` to gather PR analysis
-2. Analyze commits and generate optimal PR title and body
-3. Determine appropriate version bump (major/minor/patch/skip)
-4. Run `create-pr-apply.sh` with AI-generated decisions
-5. Report success to user
+- **Language**: POSIX shell script
+- **Dependencies**: `git`, `gh` (GitHub CLI)
+- **Platforms**: macOS, Linux
+- **Size**: ~150 lines
+- **Philosophy**: Minimal, focused, AI-native
 
-## Installation & Version Control
+## Why This Design?
 
-- Installed skills are placed under `.claude/skills/` as installation artifacts; do not commit them to git
-- The repository includes `.gitignore` rules to exclude `.claude/`
-- For universal/shared installs, skills use `.agent/skills/` directory
-- Source of truth: remote repository `wxy/pr-creator`
-- To update locally: `openskills install wxy/pr-creator -y && openskills sync -y`
+### Problems Solved
 
-## Implementation Notes
+1. **No template maintenance** 
+   - Previous versions used templates
+   - Templates become outdated, inflexible
+   - AI generates better descriptions anyway
 
-- Uses POSIX shell script (`scripts/create-pr.sh`) with `git` and `gh` CLI
-- No external dependencies beyond shell basics and GitHub CLI
-- Cross-platform compatible (macOS, Linux)
-- Supports environment variable overrides (`PR_LANG`, `--lang` flag)
+2. **No redundant scripts**
+   - Single `create-pr.sh` entry point
+   - AI calls it with all decisions
+   - No wrapper layers
+
+3. **Pure AI orchestration**
+   - Script = execution engine only
+   - AI = decision maker
+   - Clear separation of concerns
+
+### Design Principles
+
+- **Minimal**: Only what's necessary
+- **Focused**: One job, do it well
+- **AI-native**: Built for AI orchestration
+- **Explicit**: All decisions visible in env vars
+- **Transparent**: Simple shell script, easy to audit
+
+## Future Enhancements
+
+- [ ] Dry-run mode for testing
+- [ ] Custom PR template via API
+- [ ] Automatic label assignment
+- [ ] PR review suggestions
+- [ ] Changelog generation

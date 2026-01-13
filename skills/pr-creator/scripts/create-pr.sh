@@ -1,149 +1,144 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# PR Creator: Unified wrapper for backward compatibility
-# This script orchestrates the analyze + apply workflow
-# Supports multiple modes:
-#   1. Autonomous AI mode: analyze → apply with AI decisions
-#   2. Interactive mode: analyze → prompt user → apply
+# PR Creator: Create or update a pull request with AI-generated decisions
+# Dependencies: git, gh
+# 
+# This is the main entry point. AI should call this with all decisions pre-made.
 #
-# For AI usage: set PR_TITLE_AI, PR_BODY_AI, VERSION_BUMP_AI, NEW_VERSION_AI
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Required environment variables (from AI):
+#   PR_BRANCH          - Branch name to work with
+#   PR_TITLE_AI        - AI-generated PR title
+#   PR_BODY_AI         - AI-generated PR body (full description)
+#   VERSION_BUMP_AI    - AI's version decision (major/minor/patch/skip)
+#   CURRENT_VERSION    - Current version from analysis
+#   NEW_VERSION        - Target version (AI should calculate this)
+#   VERSION_FILE       - Which file contains version (manifest.json, package.json, etc.)
+#
+# Usage: 
+#   PR_BRANCH="feat/my-feature" \
+#   PR_TITLE_AI="feat: add new feature" \
+#   PR_BODY_AI="Detailed description..." \
+#   VERSION_BUMP_AI="minor" \
+#   CURRENT_VERSION="1.0.0" \
+#   NEW_VERSION="1.1.0" \
+#   VERSION_FILE="manifest.json" \
+#   bash create-pr.sh
 
 bold() { printf "\033[1m%s\033[0m\n" "$1"; }
 info() { printf "[INFO] %s\n" "$1"; }
 warn() { printf "[WARN] %s\n" "$1"; }
 err()  { printf "[ERROR] %s\n" "$1"; }
 
-# === PHASE 1: ANALYZE ===
-bold "=== Phase 1: Analyze ==="
-ANALYSIS=$("$SCRIPT_DIR/create-pr-analyze.sh" 2>/dev/null | grep -v "^\[")
+current_branch() { git rev-parse --abbrev-ref HEAD; }
 
-# Parse analysis output
-eval "$ANALYSIS"
+check_existing_pr() {
+  local branch="$1"
+  gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo ""
+}
 
-info "Current branch: $CURRENT_BRANCH"
-info "Current version: $CURRENT_VERSION"
-info "Suggested bump: $SUGGESTED_BUMP"
-info "Proposed version: $PROPOSED_VERSION"
-
-# === PHASE 2: AI DECISION OR USER INTERACTION ===
-if [[ -n "${PR_TITLE_AI:-}" ]] && [[ -n "${VERSION_BUMP_AI:-}" ]]; then
-  # AI mode: use pre-provided decisions
-  bold "=== Phase 2: Using AI Decisions ==="
-  info "PR Title: $PR_TITLE_AI"
-  info "Version Bump: $VERSION_BUMP_AI"
-  FINAL_TITLE="$PR_TITLE_AI"
-  FINAL_VERSION_BUMP="$VERSION_BUMP_AI"
+apply_version_bump() {
+  local from="$1" to="$2" file="$3"
   
-  # Calculate new version
-  if [[ -n "${NEW_VERSION_AI:-}" ]]; then
-    NEW_VER="$NEW_VERSION_AI"
-  elif [[ "$FINAL_VERSION_BUMP" == "skip" ]]; then
-    NEW_VER="$CURRENT_VERSION"
-  else
-    IFS='.' read -r MA MI PA <<<"$CURRENT_VERSION"
-    case "$FINAL_VERSION_BUMP" in
-      major) ((MA=MA+1)); MI=0; PA=0;;
-      minor) ((MI=MI+1)); PA=0;;
-      patch) ((PA=PA+1));;
-      *) NEW_VER="$CURRENT_VERSION";;
-    esac
-    NEW_VER="${MA}.${MI}.${PA}"
+  if [[ ! -f "$file" ]]; then
+    warn "Version file $file not found; skipping version update"
+    return 1
   fi
-else
-  # Interactive mode
-  bold "=== Phase 2: User Confirmation ==="
   
-  echo
-  echo "Recent commits:"
-  git log origin/master..HEAD --format="  - %s" 2>/dev/null | head -10
-  
-  echo
-  echo "Version Decision:"
-  echo "  Current: $CURRENT_VERSION"
-  echo "  Suggested bump: $SUGGESTED_BUMP"
-  echo "  Would result in: $PROPOSED_VERSION"
-  echo
-  
-  read -r -p "Confirm $SUGGESTED_BUMP bump? [Y/n/s(skip)]: " choice
-  choice=${choice:-y}
-  
-  case "$choice" in
-    Y|y)
-      FINAL_VERSION_BUMP="$SUGGESTED_BUMP"
-      NEW_VER="$PROPOSED_VERSION"
+  case "$file" in
+    manifest.json|package.json)
+      sed -i.bak "s/\"version\"[[:space:]]*:[[:space:]]*\"${from}\"/\"version\": \"${to}\"/" "$file"
       ;;
-    n|N)
-      read -r -p "Enter level [major/minor/patch]: " level
-      FINAL_VERSION_BUMP="$level"
-      IFS='.' read -r MA MI PA <<<"$CURRENT_VERSION"
-      case "$level" in
-        major) ((MA=MA+1)); MI=0; PA=0;;
-        minor) ((MI=MI+1)); PA=0;;
-        patch) ((PA=PA+1));;
-      esac
-      NEW_VER="${MA}.${MI}.${PA}"
+    pyproject.toml)
+      sed -i.bak "s/^version = \"${from}\"/version = \"${to}\"/" "$file"
       ;;
-    s|S)
-      FINAL_VERSION_BUMP="skip"
-      NEW_VER="$CURRENT_VERSION"
+    setup.py)
+      sed -i.bak "s/version='${from}'/version='${to}'/" "$file"
+      sed -i.bak "s/version=\"${from}\"/version=\"${to}\"/" "$file"
       ;;
     *)
-      err "Invalid selection"
-      exit 1
+      err "Unknown version file format: $file"
+      return 1
       ;;
   esac
   
-  # Auto-generate PR title
-  LATEST_COMMIT=$(git log -1 --format="%s" 2>/dev/null || echo "")
-  if [[ -n "$LATEST_COMMIT" ]] && [[ "$LATEST_COMMIT" != "merge"* ]] && [[ "$LATEST_COMMIT" != "Merge"* ]]; then
-    FINAL_TITLE="$LATEST_COMMIT"
-    info "Title from commit: $FINAL_TITLE"
+  rm -f "${file}.bak"
+  git add "$file"
+  return 0
+}
+
+# === INPUT VALIDATION ===
+bold "PR Creator - Apply Phase"
+
+# Check required environment variables
+for var in PR_TITLE_AI PR_BODY_AI VERSION_BUMP_AI PR_BRANCH; do
+  if [[ -z "${!var:-}" ]]; then
+    err "Missing required variable: $var"
+    exit 1
+  fi
+done
+
+PR_TITLE="${PR_TITLE_AI}"
+PR_BODY="${PR_BODY_AI}"
+FINAL_LEVEL="${VERSION_BUMP_AI}"
+WORKING_BRANCH="${PR_BRANCH}"
+
+# Optional variables with defaults
+CURRENT_VER="${CURRENT_VERSION:-}"
+NEW_VER="${NEW_VERSION:-}"
+VERSION_FILE="${VERSION_FILE:-}"
+PR_LANG="${PR_LANG:-en}"
+
+info "PR Title: $PR_TITLE"
+info "Branch: $WORKING_BRANCH"
+info "Version: $CURRENT_VER → $NEW_VER"
+info "Bump level: $FINAL_LEVEL"
+
+# === CHANGE TO BRANCH ===
+git checkout "$WORKING_BRANCH" 2>/dev/null || {
+  err "Failed to checkout branch: $WORKING_BRANCH"
+  exit 1
+}
+
+# === VERSION UPDATE ===
+if [[ "$FINAL_LEVEL" != "skip" ]] && [[ -n "$CURRENT_VER" ]] && [[ -n "$NEW_VER" ]] && [[ -n "$VERSION_FILE" ]]; then
+  bold "Updating version ($CURRENT_VER → $NEW_VER)"
+  if apply_version_bump "$CURRENT_VER" "$NEW_VER" "$VERSION_FILE"; then
+    git commit -m "chore: version bump ${CURRENT_VER} → ${NEW_VER}" || info "No version changes to commit"
+    git push origin "$(current_branch)" || true
+    info "Version updated and pushed"
   else
-    BRANCH_NAME=$(echo "$CURRENT_BRANCH" | sed -E 's/[^a-zA-Z0-9]+/ /g; s/^\s+|\s+$//g')
-    FINAL_TITLE="$BRANCH_NAME"
-    info "Title from branch: $FINAL_TITLE"
+    warn "Version update failed; continuing with PR creation"
+  fi
+else
+  if [[ "$FINAL_LEVEL" == "skip" ]]; then
+    info "Skipping version update (as requested)"
+  else
+    info "Missing version info; skipping version update"
   fi
 fi
 
-# === PHASE 3: GENERATE PR BODY ===
-if [[ -n "${PR_BODY_AI:-}" ]]; then
-  # Use AI-provided body
-  bold "=== Phase 3: Using AI-Generated PR Body ==="
-  FINAL_BODY="$PR_BODY_AI"
+# === CREATE/UPDATE PR ===
+bold "Creating/updating PR"
+
+# Check for existing PR
+CBR="$(current_branch)"
+EXISTING_PR="$(check_existing_pr "$CBR")"
+
+if [[ -n "$EXISTING_PR" ]]; then
+  bold "Updating PR #$EXISTING_PR..."
+  gh pr edit "$EXISTING_PR" --title "$PR_TITLE" --body "$PR_BODY" || {
+    err "Failed to update PR"
+    exit 1
+  }
+  info "PR #$EXISTING_PR updated successfully"
 else
-  # Generate default body
-  bold "=== Phase 3: Generating Default PR Body ==="
-  FINAL_BODY=$(cat <<EOF
-## Summary
-$FINAL_TITLE
-
-## Changes
-- See commits for details
-
-## Version
-- From: $CURRENT_VERSION → To: $NEW_VER
-- Bump: $FINAL_VERSION_BUMP
-
-## Checklist
-- [ ] Tests completed
-- [ ] Ready for review
-EOF
-)
+  bold "Creating new PR..."
+  gh pr create --title "$PR_TITLE" --body "$PR_BODY" --base master || {
+    err "Failed to create PR"
+    exit 1
+  }
+  info "PR created successfully"
 fi
 
-# === PHASE 4: APPLY ===
-bold "=== Phase 4: Apply (Create/Update PR) ==="
-
-PR_TITLE_AI="$FINAL_TITLE" \
-PR_BODY_AI="$FINAL_BODY" \
-VERSION_BUMP_AI="$FINAL_VERSION_BUMP" \
-PR_BRANCH="$CURRENT_BRANCH" \
-CURRENT_VERSION="$CURRENT_VERSION" \
-NEW_VERSION="$NEW_VER" \
-VERSION_FILE="$VERSION_FILE" \
-"$SCRIPT_DIR/create-pr-apply.sh"
-
-info "PR creation workflow complete!"
+info "Done!"
