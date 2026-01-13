@@ -170,6 +170,31 @@ bash create-pr.sh
 |------|------|--------|
 | `PR_LANG` | PR 语言 | `en` |
 | `PR_BODY_AI` | 短描述 | （无） |
+| `DRY_RUN` | 试运行模式 | `false` |
+
+## 试运行模式（DRY_RUN）
+
+在实际创建 PR 前，可以使用试运行模式预览所有操作：
+
+```bash
+# 预览所有操作，不做任何修改
+DRY_RUN=true \
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: 新增功能" \
+PR_LANG="zh-CN" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="manifest.json" \
+bash create-pr.sh
+```
+
+**试运行模式会显示**：
+- 将要检出的分支
+- 将要更新的版本号
+- 将要执行的 git 命令
+- PR 标题和描述预览
+- 不会实际修改任何文件或创建 PR
 
 ## 完整工作流示例（AI 助手使用 create_file）
 

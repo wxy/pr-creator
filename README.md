@@ -225,6 +225,55 @@ Supported values: `zh-CN`, `en`, or any ISO language code.
 PR_LANG=zh bash skills/pr-creator/scripts/create-pr.sh
 ```
 
+### Dry-Run Mode (Testing)
+
+Test the script without making any modifications to your repository:
+
+```bash
+DRY_RUN=true \
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: My feature" \
+PR_LANG="en" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+bash create-pr.sh
+```
+
+The script will display a preview of what would happen:
+- Version bump details
+- Git commits that would be made
+- PR that would be created
+
+**No files are modified** when `DRY_RUN=true`. This is useful for:
+- Testing PR descriptions before creating them
+- Verifying version updates
+- Validating branch names
+- Checking commit messages
+
+### Testing Development Versions Locally
+
+To test development versions of this skill without affecting the installed version:
+
+```bash
+# Backup your current installation and install development version
+bash scripts/test-skill.sh
+
+# Now test the skill with DRY_RUN or manual testing
+DRY_RUN=true bash ~/.claude/skills/pr-creator/scripts/create-pr.sh
+
+# To restore the original version, run the command shown by test-skill.sh
+# Example: cp -r ~/.claude/skills/pr-creator.backup.YYYYMMDD_HHMMSS ~/.claude/skills/pr-creator
+```
+
+This script:
+- Checks for OpenSkills installation
+- Backs up your current `~/.claude/skills/pr-creator` with a timestamp
+- Copies the development version from this repository
+- Shows you how to restore the original version if needed
+
+**Perfect for**: Developing and testing new features before committing
+
 ### Version Configuration
 
 The script looks for version information in `manifest.json`:
