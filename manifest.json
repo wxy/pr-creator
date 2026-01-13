@@ -1,6 +1,6 @@
 {
   "name": "pr-creator",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Automate PR creation with semantic versioning and branch management",
   "author": "xingyu.wang",
   "license": "MIT",
