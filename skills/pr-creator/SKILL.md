@@ -36,32 +36,50 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
    - Calculate new version number
    - Determine bump level (major/minor/patch/skip)
 
-3. **Execute** (using most reliable method for your content):
+3. **Execute** (AI assistants should use create_file):
    
-   **Method A - Temporary File with printf (RECOMMENDED)**:
+   **Method A - create_file tool (BEST for AI assistants)**:
+   ```python
+   # AI should use create_file tool - most reliable
+   create_file(
+     filePath=".github/pr-description.tmp",
+     content="""## 功能说明
+这个 PR 实现了...
+
+## 改动
+- 功能 1"""
+   )
+   
+   # Then execute with env vars
+   run_in_terminal(
+     command="bash create-pr.sh",
+     env={
+       "PR_BRANCH": "feat/my-feature",
+       "PR_TITLE_AI": "feat: 新增功能",
+       "PR_LANG": "zh-CN",
+       "VERSION_BUMP_AI": "minor",
+       ...
+     }
+   )
+   ```
+
+   **Why create_file for AI?** No shell issues, reliable in AI environments
+
+   **Method B - printf (for manual terminal use)**:
    ```bash
+   # When humans execute in terminal
    mkdir -p .github
-   # Use printf - much more reliable than cat + heredoc
    printf '%s\n' \
      "## 功能说明" \
-     "这个 PR 实现了..." \
-     "" \
-     "## 改动" \
-     "- 功能 1" > .github/pr-description.tmp
+     "..." > .github/pr-description.tmp
    
    PR_BRANCH="feat/my-feature" \
    PR_TITLE_AI="feat: 新增功能" \
    PR_LANG="zh-CN" \
-   VERSION_BUMP_AI="minor" \
-   CURRENT_VERSION="1.0.0" \
-   NEW_VERSION="1.1.0" \
-   VERSION_FILE="package.json" \
    bash create-pr.sh
    ```
 
-   **Why printf?** No variable expansion, no quote issues, better reliability.
-
-   **Method B - Environment Variable (for short content)**:
+   **Method C - Environment Variable (short content)**:
    ```bash
    PR_BRANCH="feat/my-feature" \
    PR_TITLE_AI="feat: 新增功能" \
@@ -71,7 +89,7 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
    ... bash create-pr.sh
    ```
 
-   **Method C - Stdin (flexible, dynamic content)**:
+   **Method D - Stdin (dynamic content)**:
    ```bash
    echo "PR description" | \
    PR_BRANCH="feat/my-feature" \
@@ -184,8 +202,35 @@ Required for script execution:
 | `NEW_VERSION` | After version | `1.1.0` |
 | `VERSION_FILE` | Version location | `package.json` |
 | `PR_LANG` *(optional)* | PR language | `zh-CN`, `en` |
+| `DRY_RUN` *(optional)* | Preview without changes | `true`, `false` |
 
-**Note**: For long PR descriptions, create `.github/pr-description.tmp` instead of passing via `PR_BODY_AI` - the script automatically reads it if present.
+**Notes**: 
+- For long PR descriptions, create `.github/pr-description.tmp` instead of passing via `PR_BODY_AI` - the script automatically reads it if present.
+- Set `DRY_RUN=true` to preview PR creation without modifying files or creating PR
+
+### Dry-Run Mode
+
+Test the script without making any changes to your repository:
+
+```bash
+DRY_RUN=true \
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: My feature" \
+PR_LANG="en" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="package.json" \
+bash create-pr.sh
+```
+
+**Output**: Shows what would happen (version updates, commits, PR creation) without executing
+
+**Perfect for**:
+- AI assistants to verify PR decisions before execution
+- Testing PR descriptions and titles
+- Validating version bumps
+- Checking branch names
 
 ## Technical Details
 
@@ -224,8 +269,41 @@ Required for script execution:
 
 ## Future Enhancements
 
-- [ ] Dry-run mode for testing
+- [x] Dry-run mode for testing
 - [ ] Custom PR template via API
 - [ ] Automatic label assignment
 - [ ] PR review suggestions
 - [ ] Changelog generation
+
+## Testing Development Versions Locally
+
+To test development versions of this skill without affecting your installed version:
+
+```bash
+# In the pr-creator repository root directory
+bash scripts/test-skill.sh
+```
+
+This script:
+1. Checks for OpenSkills installation
+2. Backs up your current `~/.claude/skills/pr-creator`
+3. Installs the development version from this repository
+4. Shows restore instructions
+
+**Workflow for development**:
+```bash
+# 1. Make changes to skills/pr-creator/scripts/create-pr.sh
+# 2. Test with dry-run mode
+DRY_RUN=true PR_BRANCH="..." PR_TITLE_AI="..." bash skills/pr-creator/scripts/create-pr.sh
+
+# 3. Test with actual PR creation (or continue with dry-run)
+PR_BRANCH="..." PR_TITLE_AI="..." bash skills/pr-creator/scripts/create-pr.sh
+
+# 4. Restore original version when done
+cp -r ~/.claude/skills/pr-creator.backup.YYYYMMDD_HHMMSS ~/.claude/skills/pr-creator
+```
+
+**Benefits**:
+- Test changes without committing to repository
+- Avoid "can't test without committing, can't commit without testing" catch-22
+- Safe backup/restore workflow

@@ -17,6 +17,7 @@ set -euo pipefail
 #
 # Optional environment variables:
 #   PR_LANG            - Language for PR (e.g., zh-CN, en; defaults to en)
+#   DRY_RUN            - Set to "true" to preview changes without executing (test mode)
 #
 # For long descriptions, there are 3 reliable methods:
 #   Method 1 (Recommended): Write to .github/pr-description.tmp file
@@ -125,12 +126,42 @@ CURRENT_VER="${CURRENT_VERSION:-}"
 NEW_VER="${NEW_VERSION:-}"
 VERSION_FILE="${VERSION_FILE:-}"
 PR_LANG="${PR_LANG:-en}"
+DRY_RUN="${DRY_RUN:-false}"
+
+# Add attribution footer to PR body
+PR_BODY="${PR_BODY}
+
+---
+*此 PR 由 [pr-creator](https://github.com/wxy/pr-creator) 技能自动生成*"
 
 info "PR Title: $PR_TITLE"
 info "Branch: $WORKING_BRANCH"
 info "Language: $PR_LANG"
 [[ -n "$CURRENT_VER" ]] && info "Version: $CURRENT_VER → $NEW_VER"
 info "Bump level: $FINAL_LEVEL"
+
+# Dry run mode
+if [[ "$DRY_RUN" == "true" ]]; then
+  bold "🧪 DRY RUN MODE - No changes will be made"
+  echo ""
+  echo "Would execute the following:"
+  echo "  1. Checkout branch: $WORKING_BRANCH"
+  if [[ "$FINAL_LEVEL" != "skip" ]] && [[ -n "$CURRENT_VER" ]] && [[ -n "$NEW_VER" ]]; then
+    echo "  2. Update version: $CURRENT_VER → $NEW_VER in $VERSION_FILE"
+    echo "  3. Commit: chore: version bump ${CURRENT_VER} → ${NEW_VER}"
+    echo "  4. Push changes"
+  else
+    echo "  2. Skip version update"
+  fi
+  echo "  5. Create/update PR with title: $PR_TITLE"
+  echo "  6. PR body preview:"
+  echo "     ----------------------------------------"
+  echo "$PR_BODY" | head -20
+  echo "     ----------------------------------------"
+  echo ""
+  info "Dry run complete. Set DRY_RUN=false or unset to execute."
+  exit 0
+fi
 
 # === CHANGE TO BRANCH ===
 git checkout "$WORKING_BRANCH" 2>/dev/null || {

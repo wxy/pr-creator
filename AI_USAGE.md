@@ -51,10 +51,56 @@ test -f setup.py && echo "setup.py"
 
 ## 调用脚本的三种方法
 
-### 方法 1：使用临时文件（长描述）- RECOMMENDED
+### 方法 1：使用 create_file 工具创建临时文件 - MOST RECOMMENDED FOR AI
+
+**AI 助手应该使用 `create_file` 工具创建描述文件（最可靠）**：
+
+```python
+# Step 1: 使用 create_file 工具创建 PR 描述
+create_file(
+  filePath=".github/pr-description.tmp",
+  content="""## 功能说明
+
+这个 PR 实现了新的用户认证功能。
+
+## 改动列表
+- 添加 OAuth 2.0 支持
+- 实现 JWT token 管理
+- 添加用户会话功能
+
+## 测试
+- 单元测试覆盖率 95%
+- 集成测试通过
+"""
+)
+
+# Step 2: 然后调用脚本
+run_in_terminal(
+  command="bash skills/pr-creator/scripts/create-pr.sh",
+  env={
+    "PR_BRANCH": "feat/auth-system",
+    "PR_TITLE_AI": "feat: 新增用户认证系统",
+    "PR_LANG": "zh-CN",
+    "VERSION_BUMP_AI": "minor",
+    "CURRENT_VERSION": "1.0.0",
+    "NEW_VERSION": "1.1.0",
+    "VERSION_FILE": "manifest.json"
+  }
+)
+```
+
+**为什么 create_file 最可靠**：
+- ✅ 无需担心 shell 转义
+- ✅ 无需担心特殊字符
+- ✅ 无 heredoc 或引号问题
+- ✅ 在 AI 环境中最稳定
+- ✅ 支持任意长度的内容
+
+**何时使用**：AI 助手创建 PR 时（推荐）
+
+### 方法 2：使用 printf 在 shell 中（人工执行时）
 
 ```bash
-# AI 生成描述后
 mkdir -p .github
 printf '%s\n' \
   "## 功能说明" \
@@ -63,8 +109,7 @@ printf '%s\n' \
   "## 改动列表" \
   "- Feature 1" > .github/pr-description.tmp
 
-# 然后调用脚本
-PR_BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
+PR_BRANCH="feat/my-feature" \
 PR_TITLE_AI="feat: 功能名称" \
 PR_LANG="zh-CN" \
 VERSION_BUMP_AI="minor" \
@@ -74,25 +119,22 @@ VERSION_FILE="manifest.json" \
 bash create-pr.sh
 ```
 
-**何时使用**：描述复杂、有多行、有特殊字符
+**何时使用**：人工在终端中执行时
 
-### 方法 2：环境变量（短描述）
+### 方法 3：环境变量（短描述）
 
 ```bash
-PR_BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
+PR_BRANCH="feat/my-feature" \
 PR_TITLE_AI="feat: 简单功能" \
-PR_BODY_AI="这是一行描述" \
+PR_BODY_AI="这是一行简短描述" \
 PR_LANG="zh-CN" \
 VERSION_BUMP_AI="minor" \
-CURRENT_VERSION="1.0.0" \
-NEW_VERSION="1.1.0" \
-VERSION_FILE="manifest.json" \
 bash create-pr.sh
 ```
 
-**何时使用**：描述简短，无特殊格式
+**何时使用**：描述非常简短（一句话）
 
-### 方法 3：stdin 管道（动态内容）
+### 方法 4：stdin 管道（动态内容）
 
 ```bash
 # 从其他脚本生成描述
@@ -128,58 +170,127 @@ bash create-pr.sh
 |------|------|--------|
 | `PR_LANG` | PR 语言 | `en` |
 | `PR_BODY_AI` | 短描述 | （无） |
+| `DRY_RUN` | 试运行模式 | `false` |
 
-## 完整工作流示例（中文场景）
+## 试运行模式（DRY_RUN）
+
+在实际创建 PR 前，可以使用试运行模式预览所有操作：
 
 ```bash
-#!/bin/bash
-
-# 1. 当前分支和提交分析
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-CURRENT_VERSION="$(grep '"version"' manifest.json | head -1 | sed 's/.*"\([^"]*\)".*/\1/')"
-
-# 2. 分析提交，判断版本
-COMMIT_COUNT="$(git log origin/master..HEAD | grep -c '^commit')"
-HAS_BREAKING="$(git log origin/master..HEAD --format=%B | grep -c 'BREAKING CHANGE' || echo 0)"
-HAS_FEAT="$(git log origin/master..HEAD --format=%b | grep -c 'feat:' || echo 0)"
-
-if [[ $HAS_BREAKING -gt 0 ]]; then
-  BUMP="major"
-  NEW_VERSION="2.0.0"  # 示例
-elif [[ $HAS_FEAT -ge 2 ]]; then
-  BUMP="minor"
-  NEW_VERSION="1.1.0"  # 示例
-else
-  BUMP="patch"
-  NEW_VERSION="1.0.1"  # 示例
-fi
-
-# 3. 生成 PR 描述（中文）
-mkdir -p .github
-printf '%s\n' \
-  "## 功能概览" \
-  "" \
-  "本 PR 实现了新的用户认证系统。" \
-  "" \
-  "## 主要改动" \
-  "- 添加了 OAuth 2.0 支持" \
-  "- 实现了 JWT token 管理" \
-  "- 添加了用户会话管理" \
-  "" \
-  "## 测试" \
-  "- 单元测试覆盖率 95%" \
-  "- 集成测试通过" \
-  > .github/pr-description.tmp
-
-# 4. 调用技能脚本
-PR_BRANCH="$BRANCH" \
-PR_TITLE_AI="feat: 新增用户认证系统" \
+# 预览所有操作，不做任何修改
+DRY_RUN=true \
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: 新增功能" \
 PR_LANG="zh-CN" \
-VERSION_BUMP_AI="$BUMP" \
-CURRENT_VERSION="$CURRENT_VERSION" \
-NEW_VERSION="$NEW_VERSION" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
 VERSION_FILE="manifest.json" \
-bash skills/pr-creator/scripts/create-pr.sh
+bash create-pr.sh
+```
+
+**试运行模式会显示**：
+- 将要检出的分支
+- 将要更新的版本号
+- 将要执行的 git 命令
+- PR 标题和描述预览
+- 不会实际修改任何文件或创建 PR
+
+## 完整工作流示例（AI 助手使用 create_file）
+
+```python
+#!/usr/bin/env python
+# AI 助手的完整工作流
+
+# Step 1: 分析当前分支和提交
+branch = run_command("git rev-parse --abbrev-ref HEAD")  # feat/auth-system
+commits = run_command("git log origin/master..HEAD --pretty=format:'%s'")
+
+# Step 2: 检测版本文件和当前版本
+version_file = None
+current_version = None
+
+if file_exists("manifest.json"):
+    version_file = "manifest.json"
+    content = read_file("manifest.json")
+    current_version = extract_version(content)  # "1.0.0"
+elif file_exists("package.json"):
+    version_file = "package.json"
+    # ... similar logic
+
+# Step 3: 分析提交，判断版本提升
+has_breaking = "BREAKING CHANGE" in commits or "!:" in commits
+feat_count = commits.count("feat:")
+
+if has_breaking:
+    bump_level = "major"
+    new_version = "2.0.0"
+elif feat_count >= 2:
+    bump_level = "minor"
+    new_version = "1.1.0"
+else:
+    bump_level = "patch"
+    new_version = "1.0.1"
+
+# Step 4: 生成 PR 描述（跟随对话语言）
+pr_language = detect_conversation_language()  # "zh-CN"
+
+# Step 5: 使用 create_file 工具创建描述（最可靠）
+create_file(
+    filePath=".github/pr-description.tmp",
+    content="""## 功能概览
+
+本 PR 实现了新的用户认证系统。
+
+## 主要改动
+
+### 1. OAuth 2.0 集成
+- 添加 Google OAuth 支持
+- 添加 GitHub OAuth 支持
+- 实现 OAuth 回调处理
+
+### 2. JWT Token 管理
+- 实现 token 生成和验证
+- 添加 refresh token 机制
+- 实现 token 过期管理
+
+### 3. 用户会话
+- 添加会话存储
+- 实现会话过期处理
+- 添加多设备登录支持
+
+## 测试
+
+- ✅ 单元测试覆盖率: 95%
+- ✅ 集成测试: 通过
+- ✅ 安全审计: 通过
+
+## 破坏性改动
+
+无
+"""
+)
+
+# Step 6: 调用技能脚本
+run_in_terminal(
+    command="bash skills/pr-creator/scripts/create-pr.sh",
+    explanation="使用 pr-creator 技能创建 PR",
+    env={
+        "PR_BRANCH": branch,
+        "PR_TITLE_AI": "feat: 新增用户认证系统",
+        "PR_LANG": pr_language,
+        "VERSION_BUMP_AI": bump_level,
+        "CURRENT_VERSION": current_version,
+        "NEW_VERSION": new_version,
+        "VERSION_FILE": version_file
+    }
+)
+
+# 脚本会自动：
+# - 更新版本文件
+# - 提交版本更改
+# - 创建或更新 PR
+# - 清理临时文件
 ```
 
 ## 错误处理
