@@ -75,7 +75,7 @@ This ensures the PR description language matches the user's conversation languag
 
 ## Workflow
 
-The skill follows these steps:
+The skill follows these steps, with full AI automation when invoked from conversation:
 
 1. **Check for existing PR** on current branch
    - If found → update mode (edit PR description)
@@ -84,19 +84,21 @@ The skill follows these steps:
 2. **Analyze commits** since `origin/master`
    - Detect change types (BREAKING, feat, fix, etc.)
    - Count feat commits for intelligent version suggestion
+   - (ANALYSIS_ONLY mode: output analysis and exit for AI processing)
 
 3. **Suggest version bump** based on commits:
    - **Major**: BREAKING CHANGE or `!:` prefix
    - **Minor**: 2+ `feat:` commits (multiple user-facing features)
    - **Patch**: Single `feat:`, `fix`, `refactor`, `docs`, etc.
 
-4. **Confirm with user**:
-   - Accept suggestion
-   - Choose alternative level (major/minor/patch)
-   - Skip version update
+4. **AI-Driven Decision** (when PR_TITLE_AI and VERSION_BUMP_AI provided):
+   - Use AI-generated PR title directly
+   - Apply AI's version bump decision immediately
+   - No user interaction required
+   - Fall back to interactive mode if AI variables not set
 
-5. **Apply bump** (if confirmed):
-   - Update `manifest.json` version
+5. **Apply bump** (if not skipped):
+   - Detect and update version file (manifest.json, package.json, pyproject.toml, setup.py)
    - Create commit and push
 
 6. **Detect conversation language** and prepare PR:
@@ -109,12 +111,38 @@ The skill follows these steps:
    - Replace placeholders (version numbers, bump reason, overview)
    - Create temporary file at `.github/.pr_description_tmp.md`
 
-8. **Optionally rename branch** to match PR title slug
+8. **Optional branch rename** (only with AUTO_RENAME=true):
+   - Rename branch to match PR title slug
+   - Update remote reference
 
 9. **Create or update PR** via `gh` CLI:
    - **Create**: `gh pr create --title "..." --body-file .github/.pr_description_tmp.md --base master`
    - **Update**: `gh pr edit <number> --body-file .github/.pr_description_tmp.md`
    - Clean up temporary file
+
+## AI Integration
+
+The skill supports full AI automation through environment variables:
+
+**Analysis Mode** (read PR details):
+```bash
+ANALYSIS_ONLY=true bash create-pr.sh
+# Outputs: branch, version, suggested bump, commits (for AI to analyze)
+```
+
+**Autonomous Mode** (AI makes all decisions):
+```bash
+PR_TITLE_AI="Your PR Title" \
+VERSION_BUMP_AI="minor" \
+bash create-pr.sh
+# Creates/updates PR with AI-provided values, zero interaction
+```
+
+When called from OpenSkills in conversation, the AI assistant will:
+1. Run script with `ANALYSIS_ONLY=true` to gather PR details
+2. Analyze commits and suggest optimal PR title and version bump
+3. Re-run script with `PR_TITLE_AI` and `VERSION_BUMP_AI` to create PR
+4. Report success to user in conversation
 
 ## Installation & Version Control
 

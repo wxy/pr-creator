@@ -4,16 +4,15 @@ A minimal, dependency-light skill to automate Pull Request creation with semanti
 
 ## Features
 
+- ✅ **AI-Driven Automation**: Full autonomous PR creation with AI-generated titles and version decisions
 - ✅ Analyze commits and suggest semantic version bumps
-- ✅ Support for `manifest.json` version updates
-- ✅ Interactive version confirmation (accept/adjust/skip)
+- ✅ Support for multiple version file formats (manifest.json, package.json, pyproject.toml, setup.py)
 - ✅ **Multi-language PR templates** (English/中文)
 - ✅ **Automatic language detection** from conversation context
 - ✅ **Smart PR update**: Updates existing PR instead of creating duplicates
-- ✅ Structured PR descriptions from templates in `.github/`
-- ✅ Automatic branch renaming to match PR title
+- ✅ Structured PR descriptions from templates
+- ✅ Multi-version file support (Plasmo/Node.js, Python, generic projects)
 - ✅ Zero external dependencies (POSIX shell + `sed`)
-- ✅ Works on macOS and Linux
 
 ## Requirements
 
@@ -38,12 +37,11 @@ Then in your AI conversation, simply say:
 - "创建 PR" (Chinese)
 - "Create a PR" (English)
 
-The skill will automatically:
-1. Analyze your commits and suggest a semantic version bump
-2. Update version in `manifest.json` (if present)
-3. Generate a structured PR description
-4. Optionally rename your branch to match the PR title
-5. Create the PR using GitHub CLI
+The AI will automatically:
+1. Analyze your commits and determine optimal PR title and version bump
+2. Update version in detected file (manifest.json, package.json, pyproject.toml, or setup.py)
+3. Generate a structured PR description in your conversation language
+4. Create the PR using GitHub CLI - **zero interaction required**
 
 ### Option 2: Direct Script Execution
 
