@@ -36,17 +36,39 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
    - Calculate new version number
    - Determine bump level (major/minor/patch/skip)
 
-3. **Execute**:
+3. **Execute** (using most reliable method for your content):
+   
+   **Method A - Temporary file (for long/complex content - RECOMMENDED)**:
    ```bash
+   mkdir -p .github
+   # Use printf or echo to write file (more reliable than heredoc)
+   printf '%s\n' "## Overview" "Content here" > .github/pr-description.tmp
+   
    PR_BRANCH="feat/my-feature" \
    PR_TITLE_AI="feat: add new feature" \
-   PR_BODY_AI="## What
-This PR adds..." \
    VERSION_BUMP_AI="minor" \
    CURRENT_VERSION="1.0.0" \
    NEW_VERSION="1.1.0" \
    VERSION_FILE="package.json" \
    bash create-pr.sh
+   ```
+
+   **Method B - Environment variable (for short content)**:
+   ```bash
+   PR_BRANCH="feat/my-feature" \
+   PR_TITLE_AI="feat: add new feature" \
+   PR_BODY_AI="Brief description" \
+   VERSION_BUMP_AI="minor" \
+   ... bash create-pr.sh
+   ```
+
+   **Method C - Stdin (flexible, avoids escaping issues)**:
+   ```bash
+   echo "PR description" | \
+   PR_BRANCH="feat/my-feature" \
+   PR_TITLE_AI="feat: add new feature" \
+   VERSION_BUMP_AI="minor" \
+   ... bash create-pr.sh
    ```
 
 ## Usage

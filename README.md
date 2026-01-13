@@ -101,28 +101,69 @@ Follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](ht
 
 ## Advanced Usage
 
-### Long PR Descriptions
+### PR Description Methods
 
-For complex PR descriptions that exceed command-line length limits, write to a temporary file:
+The script supports **3 reliable methods** for providing PR descriptions (choose based on your use case):
+
+#### Method 1: Temporary File (RECOMMENDED for complex content)
+Most reliable for long, complex descriptions with special characters:
 
 ```bash
 mkdir -p .github
-cat > .github/pr-description.tmp << 'EOF'
-## Overview
-Detailed description of changes...
+# Use printf to safely write file (more reliable than cat + heredoc)
+printf '%s\n' \
+  "## Overview" \
+  "Detailed description here..." \
+  "" \
+  "## Changes" \
+  "- Feature 1" \
+  "- Feature 2" > .github/pr-description.tmp
 
-## Testing
-How to test the changes...
-EOF
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: my feature" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="manifest.json" \
+bash create-pr.sh
+```
 
-# Then run the script (it will read the temporary file automatically)
+**Advantages**: 
+- No shell escaping issues
+- Handles multi-line content reliably
+- Works with special characters
+- Auto-cleaned after PR creation
+
+#### Method 2: Environment Variable (for short descriptions)
+Simple approach for brief PR descriptions:
+
+```bash
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: my feature" \
+PR_BODY_AI="Brief one-line description" \
+VERSION_BUMP_AI="minor" \
+... bash create-pr.sh
+```
+
+#### Method 3: Stdin (flexible, avoids escaping)
+Pipe description from another command or script:
+
+```bash
+echo "PR description from pipeline" | \
 PR_BRANCH="feat/my-feature" \
 PR_TITLE_AI="feat: my feature" \
 VERSION_BUMP_AI="minor" \
 ... bash create-pr.sh
 ```
 
-The script automatically cleans up the temporary file after PR creation.
+### Why These Methods are Reliable
+
+| Method | Best For | Reliability | Escaping |
+|--------|----------|-------------|----------|
+| **File** | Complex, multi-line | ⭐⭐⭐⭐⭐ | None needed |
+| **Env Var** | Short content | ⭐⭐⭐⭐ | Some care needed |
+| **Stdin** | Dynamic content | ⭐⭐⭐⭐⭐ | None needed |
+| heredoc (cat) | Legacy | ⭐⭐⭐ | Issues with quotes, variables |
 
 ### Language Control
 

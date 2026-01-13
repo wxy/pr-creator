@@ -18,28 +18,21 @@ set -euo pipefail
 # Optional environment variables:
 #   PR_LANG            - Language for PR (e.g., zh-CN, en; defaults to en)
 #
-# For long descriptions, create PR body in .github/pr-description.tmp:
-#   AI writes description to .github/pr-description.tmp
-#   Script automatically reads it if file exists
+# For long descriptions, there are 3 reliable methods:
+#   Method 1 (Recommended): Write to .github/pr-description.tmp file
+#   Method 2 (Simple): Pass via PR_BODY_AI environment variable (short content only)
+#   Method 3 (Flexible): Pipe via stdin: echo "..." | bash create-pr.sh
 #
-# Usage (short description): 
-#   PR_BRANCH="feat/my-feature" \
-#   PR_TITLE_AI="feat: add new feature" \
-#   PR_BODY_AI="Brief description" \
-#   VERSION_BUMP_AI="minor" \
-#   CURRENT_VERSION="1.0.0" \
-#   NEW_VERSION="1.1.0" \
-#   VERSION_FILE="manifest.json" \
-#   bash create-pr.sh
+# Method 1 Example (most reliable for large/complex content):
+#   printf '%s\n' "Line 1" "Line 2" > .github/pr-description.tmp
+#   PR_BRANCH="..." PR_TITLE_AI="..." bash create-pr.sh
 #
-# Usage (long description):
-#   mkdir -p .github
-#   cat > .github/pr-description.tmp << 'EOF'
-#   ## Overview
-#   Detailed PR description...
-#   EOF
-#   PR_BRANCH="..." PR_TITLE_AI="..." VERSION_BUMP_AI="..." \
-#   bash create-pr.sh
+# Method 2 Example (for short descriptions):
+#   PR_BODY_AI="Brief description" PR_BRANCH="..." bash create-pr.sh
+#
+# Method 3 Example (flexible, avoids shell escaping issues):
+#   echo "Description from script" | \
+#   PR_BRANCH="..." PR_TITLE_AI="..." bash create-pr.sh
 
 bold() { printf "\033[1m%s\033[0m\n" "$1"; }
 info() { printf "[INFO] %s\n" "$1"; }
@@ -98,16 +91,33 @@ PR_TITLE="${PR_TITLE_AI}"
 FINAL_LEVEL="${VERSION_BUMP_AI}"
 WORKING_BRANCH="${PR_BRANCH}"
 
-# Load PR description: from file if exists, otherwise from environment
+# Load PR description from multiple sources (in priority order)
 if [[ -f .github/pr-description.tmp ]]; then
+  # Method 1: Read from temporary file (most reliable for large content)
   info "Loading PR description from .github/pr-description.tmp"
-  PR_BODY="$(cat .github/pr-description.tmp)"
+  PR_BODY="$(cat .github/pr-description.tmp)" || {
+    err "Failed to read .github/pr-description.tmp"
+    exit 1
+  }
 elif [[ -n "${PR_BODY_AI:-}" ]]; then
+  # Method 2: Use environment variable (for short descriptions)
   info "Using PR description from PR_BODY_AI environment variable"
   PR_BODY="${PR_BODY_AI}"
 else
-  err "Missing PR description: neither .github/pr-description.tmp exists nor PR_BODY_AI is set"
-  exit 1
+  # Method 3: Try to read from stdin (if piped)
+  if [[ ! -t 0 ]]; then
+    info "Reading PR description from stdin"
+    PR_BODY="$(cat)" || {
+      err "Failed to read from stdin"
+      exit 1
+    }
+  else
+    err "Missing PR description: use one of:"
+    err "  1. Create .github/pr-description.tmp file"
+    err "  2. Set PR_BODY_AI environment variable"
+    err "  3. Pipe description via stdin"
+    exit 1
+  fi
 fi
 
 # Optional variables with defaults
