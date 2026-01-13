@@ -3,6 +3,11 @@ set -euo pipefail
 
 # PR Creator: Automate PR creation with semantic versioning and branch management
 # Dependencies: git, gh, sed
+# 
+# Environment variables for AI-driven mode:
+#   PR_TITLE_AI      - AI-generated PR title
+#   VERSION_BUMP_AI  - AI's version bump decision (major/minor/patch/skip)
+#   ANALYSIS_ONLY    - Set to 'true' to output analysis and exit (for AI to read)
 
 bold() { printf "\033[1m%s\033[0m\n" "$1"; }
 info() { printf "[INFO] %s\n" "$1"; }
@@ -171,9 +176,37 @@ esac
 
 NEWVER="$(bump_version "$VER" "$SUG")"; info "Proposed version: $VER → $NEWVER"
 
+# === AI ANALYSIS OUTPUT MODE ===
+# If ANALYSIS_ONLY is set, output analysis data and exit for AI to process
+if [[ "${ANALYSIS_ONLY:-false}" == "true" ]]; then
+  cat <<EOF
+===== PR CREATOR ANALYSIS OUTPUT (for AI processing) =====
+CURRENT_BRANCH=$CBR
+CURRENT_VERSION=$VER
+VERSION_FILE_MISSING=$SKIP_VERSION
+SUGGESTED_BUMP=$SUG
+NEW_VERSION=$NEWVER
+COMMITS=$(git log origin/master..HEAD --format="%s" | head -10 | tr '\n' '|')
+===== END ANALYSIS =====
+EOF
+  exit 0
+fi
+
 echo
 bold "Confirm version bump"
-if [[ "$SKIP_VERSION" == "true" ]]; then
+
+# === AI-DRIVEN MODE ===
+# If AI has provided version bump decision, use it directly
+if [[ -n "${VERSION_BUMP_AI:-}" ]]; then
+  info "Using AI version bump decision: $VERSION_BUMP_AI"
+  FINAL_LEVEL="$VERSION_BUMP_AI"
+  
+  if [[ "$FINAL_LEVEL" == "skip" ]]; then
+    FINAL_VER="$VER"
+  else
+    FINAL_VER="$(bump_version "$VER" "$FINAL_LEVEL")"
+  fi
+elif [[ "$SKIP_VERSION" == "true" ]]; then
   echo "Note: No version file detected; version update will be skipped."
   echo "A) Create PR with current version (no version update)"
   echo "B) Skip PR creation entirely"
@@ -184,6 +217,7 @@ if [[ "$SKIP_VERSION" == "true" ]]; then
     *) err "Invalid choice"; exit 1;;
   esac
 else
+  # === INTERACTIVE MODE (fallback) ===
   echo "A) Accept suggestion ($VER → $NEWVER, $SUG)"
   echo "B) Choose another level"
   echo "C) Skip version update"
@@ -212,21 +246,24 @@ if [[ "$FINAL_LEVEL" != "skip" ]]; then
   fi
 fi
 
-# 3) PR title & description - auto-generate from branch name or latest commit
+# 3) PR title & description
 bold "Prepare PR information"
 
-# Auto-generate PR title from:
-# 1. Latest commit message (first line)
-# 2. Branch name (if no commits or commit is empty)
-LATEST_COMMIT=$(git log -1 --format="%s" 2>/dev/null || echo "")
-if [[ -n "$LATEST_COMMIT" ]] && [[ "$LATEST_COMMIT" != "merge"* ]] && [[ "$LATEST_COMMIT" != "Merge"* ]]; then
-  PR_TITLE="$LATEST_COMMIT"
-  info "Auto-generated PR title from latest commit: $PR_TITLE"
+# Use AI-generated PR title if provided, otherwise auto-generate
+if [[ -n "${PR_TITLE_AI:-}" ]]; then
+  PR_TITLE="$PR_TITLE_AI"
+  info "Using AI-generated PR title: $PR_TITLE"
 else
-  # Use branch name as fallback
-  BRANCH_TITLE=$(echo "$CBR" | sed -E 's/[^a-zA-Z0-9]+/ /g; s/^\s+|\s+$//g')
-  PR_TITLE="$BRANCH_TITLE"
-  info "Auto-generated PR title from branch name: $PR_TITLE"
+  # Auto-generate PR title from latest commit or branch name
+  LATEST_COMMIT=$(git log -1 --format="%s" 2>/dev/null || echo "")
+  if [[ -n "$LATEST_COMMIT" ]] && [[ "$LATEST_COMMIT" != "merge"* ]] && [[ "$LATEST_COMMIT" != "Merge"* ]]; then
+    PR_TITLE="$LATEST_COMMIT"
+    info "Auto-generated PR title from latest commit: $PR_TITLE"
+  else
+    BRANCH_TITLE=$(echo "$CBR" | sed -E 's/[^a-zA-Z0-9]+/ /g; s/^\s+|\s+$//g')
+    PR_TITLE="$BRANCH_TITLE"
+    info "Auto-generated PR title from branch name: $PR_TITLE"
+  fi
 fi
 
 PR_SLUG="$(slugify "$PR_TITLE")"
