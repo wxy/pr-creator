@@ -39,7 +39,11 @@ openskills use pr-creator "Update version and open PR"
 ### Direct Script Execution
 
 ```bash
-bash path/to/scripts/create-pr.sh
+# If installed via OpenSkills
+bash .claude/skills/pr-creator/scripts/create-pr.sh
+
+# Or from the repository
+bash skills/pr-creator/scripts/create-pr.sh
 ```
 
 ### Conversation Language → Template

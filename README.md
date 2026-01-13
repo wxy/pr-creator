@@ -29,11 +29,12 @@ A minimal, dependency-light skill to automate Pull Request creation with semanti
 If you have [OpenSkills](https://github.com/openskills/openskills) installed:
 
 ```bash
-# Add this skill to your project
-openskills add pr-creator
+# Install the skill
+openskills install wxy/pr-creator -y
+openskills sync -y
 
-# Use it to create PRs
-openskills use pr-creator "Create a PR"
+# Use it to create PRs in conversation
+# Just say: "创建 PR" or "Create a PR"
 ```
 
 The skill will automatically:
@@ -46,8 +47,11 @@ The skill will automatically:
 ### Option 2: Direct Script Execution
 
 ```bash
-# In your project repository
-bash path/to/pr-creator/scripts/create-pr.sh
+# After installing via OpenSkills
+bash .claude/skills/pr-creator/scripts/create-pr.sh
+
+# Or run from this repository
+bash skills/pr-creator/scripts/create-pr.sh
 ```
 
 The script will:
@@ -99,9 +103,9 @@ Follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](ht
 
 ### PR Templates
 
-The tool uses PR templates from the `references/` directory (following skill convention):
-- `references/pull_request_template.md` - English template (default)
-- `references/pull_request_template_zh.md` - Chinese template
+The tool uses PR templates bundled in the skill:
+- `skills/pr-creator/references/pull_request_template.md` - English template (default)
+- `skills/pr-creator/references/pull_request_template_zh.md` - Chinese template
 
 When using via OpenSkills with AI conversation, the appropriate template is automatically selected based on your conversation language.
 
@@ -116,7 +120,7 @@ You can also force the template selection via environment variables:
 Example:
 
 ```bash
-PR_LANG=zh bash scripts/create-pr.sh
+PR_LANG=zh bash skills/pr-creator/scripts/create-pr.sh
 ```
 
 ### Version Configuration
@@ -160,18 +164,18 @@ If no version is found, it defaults to `0.1.0`.
 pr-creator/
 ├── .github/
 │   └── .pr_description_tmp.md       # Temporary PR description (not committed)
-├── references/
-│   ├── pull_request_template.md     # English PR template
-│   └── pull_request_template_zh.md  # Chinese PR template
-├── scripts/
-│   └── create-pr.sh                 # Main script
 ├── skills/
-│   └── pr-creator/
-│       └── SKILL.md                 # Skill documentation
-├── references/                      # Additional reference files
+│   └── pr-creator/                  # Complete skill package
+│       ├── SKILL.md                 # Skill documentation
+│       ├── scripts/
+│       │   └── create-pr.sh         # Main script
+│       └── references/
+│           ├── pull_request_template.md     # English PR template
+│           └── pull_request_template_zh.md  # Chinese PR template
 ├── README.md                        # This file
 ├── AGENTS.md                        # OpenSkills integration
 ├── LICENSE                          # MIT license
+├── CHANGELOG.md                     # Version history
 └── CONTRIBUTING.md                  # Contribution guidelines
 ```
 
