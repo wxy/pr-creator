@@ -212,10 +212,25 @@ if [[ "$FINAL_LEVEL" != "skip" ]]; then
   fi
 fi
 
-# 3) PR title & description
+# 3) PR title & description - auto-generate from branch name or latest commit
 bold "Prepare PR information"
-read -r -p "PR Title: " PR_TITLE
+
+# Auto-generate PR title from:
+# 1. Latest commit message (first line)
+# 2. Branch name (if no commits or commit is empty)
+LATEST_COMMIT=$(git log -1 --format="%s" 2>/dev/null || echo "")
+if [[ -n "$LATEST_COMMIT" ]] && [[ "$LATEST_COMMIT" != "merge"* ]] && [[ "$LATEST_COMMIT" != "Merge"* ]]; then
+  PR_TITLE="$LATEST_COMMIT"
+  info "Auto-generated PR title from latest commit: $PR_TITLE"
+else
+  # Use branch name as fallback
+  BRANCH_TITLE=$(echo "$CBR" | sed -E 's/[^a-zA-Z0-9]+/ /g; s/^\s+|\s+$//g')
+  PR_TITLE="$BRANCH_TITLE"
+  info "Auto-generated PR title from branch name: $PR_TITLE"
+fi
+
 PR_SLUG="$(slugify "$PR_TITLE")"
+
 # Parse optional language flag from CLI
 PR_LANG_ARG=""
 for arg in "$@"; do
@@ -227,16 +242,19 @@ for arg in "$@"; do
 done
 
 
-# 4) Optional branch rename to match PR title
-read -r -p "Rename branch to 'pr/${PR_SLUG}'? [y/N]: " RB
-if [[ "${RB}" =~ ^[Yy]$ ]]; then
+# 4) Optional branch rename (can be skipped with env var)
+# Only rename if explicitly requested via AUTO_RENAME=true environment variable
+if [[ "${AUTO_RENAME:-false}" == "true" ]]; then
   NEW_BRANCH="pr/${PR_SLUG}"
-  git branch -m "$NEW_BRANCH"
-  git push origin -u "$NEW_BRANCH"
-  # optionally delete old remote
-  git push origin --delete "$CBR" 2>/dev/null || true
-  CBR="$NEW_BRANCH"
-  info "Branch renamed to $CBR"
+  if [[ "$NEW_BRANCH" != "$CBR" ]]; then
+    git branch -m "$NEW_BRANCH"
+    git push origin -u "$NEW_BRANCH"
+    git push origin --delete "$CBR" 2>/dev/null || true
+    CBR="$NEW_BRANCH"
+    info "Branch renamed to $CBR"
+  fi
+else
+  info "Skipping branch rename (use AUTO_RENAME=true to enable)"
 fi
 
 # 5) Generate PR description - use templates from references/
