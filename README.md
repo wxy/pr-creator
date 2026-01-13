@@ -103,10 +103,35 @@ Follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](ht
 
 ### PR Description Methods
 
-The script supports **3 reliable methods** for providing PR descriptions (choose based on your use case):
+The script supports **multiple methods** for providing PR descriptions:
 
-#### Method 1: Temporary File (RECOMMENDED for complex content)
-Most reliable for long, complex descriptions with special characters:
+#### Method 1: create_file Tool (RECOMMENDED for AI Assistants)
+AI assistants should use the `create_file` tool to create description files:
+
+```python
+# Most reliable for AI assistants
+create_file(
+  filePath=".github/pr-description.tmp",
+  content="""## Overview
+Detailed description...
+
+## Changes
+- Feature 1
+- Feature 2
+"""
+)
+
+# Then call the script
+run_in_terminal(
+  command="bash create-pr.sh",
+  env={"PR_BRANCH": "...", "PR_TITLE_AI": "...", ...}
+)
+```
+
+**Why this is best for AI**: No shell escaping, no heredoc issues, reliable in AI environments
+
+#### Method 2: printf (for Human Terminal Use)
+When executing manually in terminal, use printf for reliable file creation:
 
 ```bash
 mkdir -p .github
@@ -135,7 +160,7 @@ bash create-pr.sh
 - No heredoc delimiter conflicts: No need to worry about `EOF` appearing in content
 - Better error handling: Each line is a separate argument
 
-#### Method 2: Environment Variable (for short descriptions)
+#### Method 3: Environment Variable (for short descriptions)
 Simple approach for brief PR descriptions:
 
 ```bash
@@ -149,7 +174,7 @@ VERSION_BUMP_AI="minor" \
 
 **Important**: Remember to include `PR_LANG="zh-CN"` when using Chinese titles/descriptions!
 
-#### Method 3: Stdin (flexible, avoids escaping)
+#### Method 4: Stdin (flexible, avoids escaping)
 Pipe description from another command or script:
 
 ```bash
@@ -176,12 +201,12 @@ VERSION_BUMP_AI="minor" \
 
 ### Why These Methods are Reliable
 
-| Method | Best For | Reliability | Escaping |
-|--------|----------|-------------|----------|
-| **File** | Complex, multi-line | ⭐⭐⭐⭐⭐ | None needed |
-| **Env Var** | Short content | ⭐⭐⭐⭐ | Some care needed |
-| **Stdin** | Dynamic content | ⭐⭐⭐⭐⭐ | None needed |
-| heredoc (cat) | Legacy | ⭐⭐⭐ | Issues with quotes, variables |
+| Method | Best For | Reliability | Notes |
+|--------|----------|-------------|-------|
+| **create_file** | AI assistants | ⭐⭐⭐⭐⭐ | Most reliable for AI environments |
+| **printf** | Human terminal use | ⭐⭐⭐⭐⭐ | No escaping issues |
+| **Env Var** | Short content | ⭐⭐⭐⭐ | Limited by shell length |
+| **Stdin** | Dynamic content | ⭐⭐⭐⭐⭐ | Great for piping |
 
 ### Language Control
 

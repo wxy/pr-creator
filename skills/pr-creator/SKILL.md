@@ -36,32 +36,50 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
    - Calculate new version number
    - Determine bump level (major/minor/patch/skip)
 
-3. **Execute** (using most reliable method for your content):
+3. **Execute** (AI assistants should use create_file):
    
-   **Method A - Temporary File with printf (RECOMMENDED)**:
+   **Method A - create_file tool (BEST for AI assistants)**:
+   ```python
+   # AI should use create_file tool - most reliable
+   create_file(
+     filePath=".github/pr-description.tmp",
+     content="""## 功能说明
+这个 PR 实现了...
+
+## 改动
+- 功能 1"""
+   )
+   
+   # Then execute with env vars
+   run_in_terminal(
+     command="bash create-pr.sh",
+     env={
+       "PR_BRANCH": "feat/my-feature",
+       "PR_TITLE_AI": "feat: 新增功能",
+       "PR_LANG": "zh-CN",
+       "VERSION_BUMP_AI": "minor",
+       ...
+     }
+   )
+   ```
+
+   **Why create_file for AI?** No shell issues, reliable in AI environments
+
+   **Method B - printf (for manual terminal use)**:
    ```bash
+   # When humans execute in terminal
    mkdir -p .github
-   # Use printf - much more reliable than cat + heredoc
    printf '%s\n' \
      "## 功能说明" \
-     "这个 PR 实现了..." \
-     "" \
-     "## 改动" \
-     "- 功能 1" > .github/pr-description.tmp
+     "..." > .github/pr-description.tmp
    
    PR_BRANCH="feat/my-feature" \
    PR_TITLE_AI="feat: 新增功能" \
    PR_LANG="zh-CN" \
-   VERSION_BUMP_AI="minor" \
-   CURRENT_VERSION="1.0.0" \
-   NEW_VERSION="1.1.0" \
-   VERSION_FILE="package.json" \
    bash create-pr.sh
    ```
 
-   **Why printf?** No variable expansion, no quote issues, better reliability.
-
-   **Method B - Environment Variable (for short content)**:
+   **Method C - Environment Variable (short content)**:
    ```bash
    PR_BRANCH="feat/my-feature" \
    PR_TITLE_AI="feat: 新增功能" \
@@ -71,7 +89,7 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
    ... bash create-pr.sh
    ```
 
-   **Method C - Stdin (flexible, dynamic content)**:
+   **Method D - Stdin (dynamic content)**:
    ```bash
    echo "PR description" | \
    PR_BRANCH="feat/my-feature" \
