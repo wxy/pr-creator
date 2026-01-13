@@ -17,11 +17,34 @@ check_existing_pr() {
 }
 
 latest_version_from_manifest() {
+  # Try multiple version file formats in order of priority
+  
+  # 1. Check manifest.json (standard for this skill)
   if [[ -f manifest.json ]]; then
     sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/p' manifest.json | head -1
-  else
-    echo "" 
+    return 0
   fi
+  
+  # 2. Check package.json (Node.js/Plasmo projects)
+  if [[ -f package.json ]]; then
+    sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/p' package.json | head -1
+    return 0
+  fi
+  
+  # 3. Check pyproject.toml (Python projects)
+  if [[ -f pyproject.toml ]]; then
+    grep -E '^version = "([0-9]+\.[0-9]+\.[0-9]+)"' pyproject.toml | sed 's/version = "\([0-9]*\.[0-9]*\.[0-9]*\)"/\1/'
+    return 0
+  fi
+  
+  # 4. Check setup.py (Python projects)
+  if [[ -f setup.py ]]; then
+    grep -oE 'version\s*=\s*["\x27]([0-9]+\.[0-9]+\.[0-9]+)["\x27]' setup.py | sed 's/.*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/' | head -1
+    return 0
+  fi
+  
+  # No version file found
+  return 1
 }
 
 suggest_bump() {
@@ -61,12 +84,30 @@ bump_version() {
 
 apply_manifest_bump() {
   local from="$1" to="$2"
-  if [[ ! -f manifest.json ]]; then
-    warn "manifest.json not found; skipping version update"
-    return 0
+  
+  # Update based on detected version file type
+  if [[ -f manifest.json ]]; then
+    sed -i.bak "s/\"version\"[[:space:]]*:[[:space:]]*\"${from}\"/\"version\": \"${to}\"/" manifest.json
+    rm -f manifest.json.bak
+    git add manifest.json
+  elif [[ -f package.json ]]; then
+    sed -i.bak "s/\"version\"[[:space:]]*:[[:space:]]*\"${from}\"/\"version\": \"${to}\"/" package.json
+    rm -f package.json.bak
+    git add package.json
+  elif [[ -f pyproject.toml ]]; then
+    sed -i.bak "s/^version = \"${from}\"/version = \"${to}\"/" pyproject.toml
+    rm -f pyproject.toml.bak
+    git add pyproject.toml
+  elif [[ -f setup.py ]]; then
+    sed -i.bak "s/version='${from}'/version='${to}'/" setup.py
+    sed -i.bak "s/version=\"${from}\"/version=\"${to}\"/" setup.py
+    rm -f setup.py.bak
+    git add setup.py
+  else
+    warn "No version file found; skipping version update"
+    return 1
   fi
-  sed -i.bak "s/\"version\"[[:space:]]*:[[:space:]]*\"${from}\"/\"version\": \"${to}\"/" manifest.json
-  rm -f manifest.json.bak
+  return 0
 }
 
 slugify() {
@@ -88,7 +129,22 @@ fi
 # 2) Analyze
 bold "Analyzing commits and current version..."
 VER="$(latest_version_from_manifest)"
-[[ -z "$VER" ]] && VER="0.1.0" && warn "No version found in manifest.json; defaulting to $VER"
+
+if [[ -z "$VER" ]]; then
+  warn "No version file found (checked: manifest.json, package.json, pyproject.toml, setup.py)"
+  info "Will skip version update, but can still create PR"
+  VER="0.1.0"
+  SKIP_VERSION="true"
+else
+  SKIP_VERSION="false"
+  info "Detected version from: $(
+    [[ -f manifest.json ]] && echo manifest.json
+    [[ -f package.json ]] && echo package.json
+    [[ -f pyproject.toml ]] && echo pyproject.toml
+    [[ -f setup.py ]] && echo setup.py
+  )"
+fi
+
 info "Current branch: $CBR"
 info "Current version: $VER"
 
@@ -117,30 +173,43 @@ NEWVER="$(bump_version "$VER" "$SUG")"; info "Proposed version: $VER → $NEWVER
 
 echo
 bold "Confirm version bump"
-echo "A) Accept suggestion ($VER → $NEWVER, $SUG)"
-echo "B) Choose another level"
-echo "C) Skip version update"
-read -r -p "Select [A/B/C]: " CH
-
-case "$CH" in
-  A|a)
-    FINAL_LEVEL="$SUG"; FINAL_VER="$NEWVER";;
-  B|b)
-    read -r -p "Level [major/minor/patch]: " LV
-    FINAL_LEVEL="$LV"
-    FINAL_VER="$(bump_version "$VER" "$LV")";;
-  C|c)
-    FINAL_LEVEL="skip"; FINAL_VER="$VER";;
-  *) err "Invalid choice"; exit 1;;
-esac
+if [[ "$SKIP_VERSION" == "true" ]]; then
+  echo "Note: No version file detected; version update will be skipped."
+  echo "A) Create PR with current version (no version update)"
+  echo "B) Skip PR creation entirely"
+  read -r -p "Select [A/B]: " CH
+  case "$CH" in
+    A|a) FINAL_LEVEL="skip"; FINAL_VER="$VER";;
+    B|b) err "Cancelled"; exit 1;;
+    *) err "Invalid choice"; exit 1;;
+  esac
+else
+  echo "A) Accept suggestion ($VER → $NEWVER, $SUG)"
+  echo "B) Choose another level"
+  echo "C) Skip version update"
+  read -r -p "Select [A/B/C]: " CH
+  case "$CH" in
+    A|a)
+      FINAL_LEVEL="$SUG"; FINAL_VER="$NEWVER";;
+    B|b)
+      read -r -p "Level [major/minor/patch]: " LV
+      FINAL_LEVEL="$LV"
+      FINAL_VER="$(bump_version "$VER" "$LV")";;
+    C|c)
+      FINAL_LEVEL="skip"; FINAL_VER="$VER";;
+    *) err "Invalid choice"; exit 1;;
+  esac
+fi
 
 # 2) Apply bump if not skipped
 if [[ "$FINAL_LEVEL" != "skip" ]]; then
-  bold "Updating manifest.json version ($VER → $FINAL_VER)"
-  apply_manifest_bump "$VER" "$FINAL_VER"
-  git add manifest.json || true
-  git commit -m "chore: version bump ${VER} → ${FINAL_VER}" || info "No changes to commit"
-  git push origin "$(current_branch)" || true
+  bold "Updating version ($VER → $FINAL_VER)"
+  if apply_manifest_bump "$VER" "$FINAL_VER"; then
+    git commit -m "chore: version bump ${VER} → ${FINAL_VER}" || info "No changes to commit"
+    git push origin "$(current_branch)" || true
+  else
+    warn "Version update failed; continuing with PR creation"
+  fi
 fi
 
 # 3) PR title & description
