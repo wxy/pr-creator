@@ -1,8 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# PR Creator: Automate PR creation with semantic versioning and branch management
-# Dependencies: git, gh, sed
+# PR Creator: Create or update a pull request with AI-generated decisions
+# Dependencies: git, gh
+# 
+# This is the main entry point. AI should call this with all decisions pre-made.
+#
+# Required environment variables (from AI):
+#   PR_BRANCH          - Branch name to work with
+#   PR_TITLE_AI        - AI-generated PR title
+#   PR_BODY_AI         - AI-generated PR body (can be inline or file path)
+#   VERSION_BUMP_AI    - AI's version decision (major/minor/patch/skip)
+#   CURRENT_VERSION    - Current version from analysis
+#   NEW_VERSION        - Target version (AI should calculate this)
+#   VERSION_FILE       - Which file contains version (manifest.json, package.json, etc.)
+#
+# For long descriptions, create PR body in .github/pr-description.tmp:
+#   AI writes description to .github/pr-description.tmp
+#   Script automatically reads it if file exists
+#
+# Usage (short description): 
+#   PR_BRANCH="feat/my-feature" \
+#   PR_TITLE_AI="feat: add new feature" \
+#   PR_BODY_AI="Brief description" \
+#   VERSION_BUMP_AI="minor" \
+#   CURRENT_VERSION="1.0.0" \
+#   NEW_VERSION="1.1.0" \
+#   VERSION_FILE="manifest.json" \
+#   bash create-pr.sh
+#
+# Usage (long description):
+#   mkdir -p .github
+#   cat > .github/pr-description.tmp << 'EOF'
+#   ## Overview
+#   Detailed PR description...
+#   EOF
+#   PR_BRANCH="..." PR_TITLE_AI="..." VERSION_BUMP_AI="..." \
+#   bash create-pr.sh
 
 bold() { printf "\033[1m%s\033[0m\n" "$1"; }
 info() { printf "[INFO] %s\n" "$1"; }
@@ -16,260 +50,116 @@ check_existing_pr() {
   gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || echo ""
 }
 
-latest_version_from_manifest() {
-  if [[ -f manifest.json ]]; then
-    sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/p' manifest.json | head -1
-  else
-    echo "" 
-  fi
-}
-
-suggest_bump() {
-  local log; log=$(git log origin/master..HEAD --format="%s" || true)
+apply_version_bump() {
+  local from="$1" to="$2" file="$3"
   
-  # Major: breaking changes
-  if echo "$log" | grep -Eiq '(BREAKING CHANGE|!:)'; then 
-    echo major
-    return
+  if [[ ! -f "$file" ]]; then
+    warn "Version file $file not found; skipping version update"
+    return 1
   fi
   
-  # Count feat commits
-  local feat_count
-  feat_count=$(echo "$log" | grep -Eic '^feat:' || echo 0)
-  
-  # Minor: 2+ feat commits (likely multiple user-facing features)
-  if [[ "$feat_count" -ge 2 ]]; then
-    echo minor
-    return
-  fi
-  
-  # Patch: single feat (likely UI tweak/internal improvement), fix, refactor, docs, etc.
-  echo patch
-}
-
-bump_version() {
-  local v="$1" level="$2"
-  IFS='.' read -r MA MI PA <<<"$v"
-  case "$level" in
-    major) ((MA=MA+1)); MI=0; PA=0;;
-    minor) ((MI=MI+1)); PA=0;;
-    patch) ((PA=PA+1));;
-    *) err "Unknown bump level: $level"; return 1;;
-  esac
-  echo "${MA}.${MI}.${PA}"
-}
-
-apply_manifest_bump() {
-  local from="$1" to="$2"
-  if [[ ! -f manifest.json ]]; then
-    warn "manifest.json not found; skipping version update"
-    return 0
-  fi
-  sed -i.bak "s/\"version\"[[:space:]]*:[[:space:]]*\"${from}\"/\"version\": \"${to}\"/" manifest.json
-  rm -f manifest.json.bak
-}
-
-slugify() {
-  echo "$1" | tr 'A-Z' 'a-z' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
-}
-
-# 1) Check for existing PR
-bold "Checking for existing PR..."
-CBR="$(current_branch)"
-EXISTING_PR="$(check_existing_pr "$CBR")"
-if [[ -n "$EXISTING_PR" ]]; then
-  info "Found existing PR #$EXISTING_PR on branch $CBR"
-  PR_MODE="update"
-else
-  info "No existing PR found; will create new PR"
-  PR_MODE="create"
-fi
-
-# 2) Analyze
-bold "Analyzing commits and current version..."
-VER="$(latest_version_from_manifest)"
-[[ -z "$VER" ]] && VER="0.1.0" && warn "No version found in manifest.json; defaulting to $VER"
-info "Current branch: $CBR"
-info "Current version: $VER"
-
-SUG="$(suggest_bump)"
-
-# Provide context for the suggestion
-echo
-bold "Version bump analysis"
-COMMIT_LOG=$(git log origin/master..HEAD --format="  - %s" || echo "  (no commits)")
-echo "Recent commits:"
-echo "$COMMIT_LOG"
-echo
-info "Suggested bump: $SUG"
-
-# Explain the reasoning
-case "$SUG" in
-  major)
-    info "Reason: Breaking changes detected (BREAKING CHANGE or !:)";;
-  minor)
-    info "Reason: Multiple new features detected (2+ feat: commits)";;
-  patch)
-    info "Reason: Bug fixes, single feature, or improvements";;
-esac
-
-NEWVER="$(bump_version "$VER" "$SUG")"; info "Proposed version: $VER → $NEWVER"
-
-echo
-bold "Confirm version bump"
-echo "A) Accept suggestion ($VER → $NEWVER, $SUG)"
-echo "B) Choose another level"
-echo "C) Skip version update"
-read -r -p "Select [A/B/C]: " CH
-
-case "$CH" in
-  A|a)
-    FINAL_LEVEL="$SUG"; FINAL_VER="$NEWVER";;
-  B|b)
-    read -r -p "Level [major/minor/patch]: " LV
-    FINAL_LEVEL="$LV"
-    FINAL_VER="$(bump_version "$VER" "$LV")";;
-  C|c)
-    FINAL_LEVEL="skip"; FINAL_VER="$VER";;
-  *) err "Invalid choice"; exit 1;;
-esac
-
-# 2) Apply bump if not skipped
-if [[ "$FINAL_LEVEL" != "skip" ]]; then
-  bold "Updating manifest.json version ($VER → $FINAL_VER)"
-  apply_manifest_bump "$VER" "$FINAL_VER"
-  git add manifest.json || true
-  git commit -m "chore: version bump ${VER} → ${FINAL_VER}" || info "No changes to commit"
-  git push origin "$(current_branch)" || true
-fi
-
-# 3) PR title & description
-bold "Prepare PR information"
-read -r -p "PR Title: " PR_TITLE
-PR_SLUG="$(slugify "$PR_TITLE")"
-# Parse optional language flag from CLI
-PR_LANG_ARG=""
-for arg in "$@"; do
-  case "$arg" in
-    --lang=*) PR_LANG_ARG="${arg#*=}" ; shift ;;
-    --lang)   shift; PR_LANG_ARG="${1:-}" ; shift ;;
-    -l)       PR_LANG_ARG="${1:-}" ; shift ;;
-  esac
-done
-
-
-# 4) Optional branch rename to match PR title
-read -r -p "Rename branch to 'pr/${PR_SLUG}'? [y/N]: " RB
-if [[ "${RB}" =~ ^[Yy]$ ]]; then
-  NEW_BRANCH="pr/${PR_SLUG}"
-  git branch -m "$NEW_BRANCH"
-  git push origin -u "$NEW_BRANCH"
-  # optionally delete old remote
-  git push origin --delete "$CBR" 2>/dev/null || true
-  CBR="$NEW_BRANCH"
-  info "Branch renamed to $CBR"
-fi
-
-# 5) Generate PR description - use templates from references/
-# Temporary file stored in .github but NOT committed to git
-mkdir -p .github
-PR_TEMP_FILE=".github/.pr_description_tmp.md"
-
-# Detect language from explicit env var first, then system locale
-detect_language() {
-  local lang
-  # Priority: explicit CLI arg > env PR_LANG > LC_ALL/LC_MESSAGES > LANG
-  if [[ -n "$PR_LANG_ARG" ]]; then
-    lang="$PR_LANG_ARG"
-  else
-    lang="${PR_LANG:-}"
-  fi
-  if [[ -z "$lang" ]]; then
-    lang="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
-  fi
-  if echo "$lang" | grep -Eiq 'zh|zh_CN|zh-CN|Chinese|中文'; then
-    echo zh
-  else
-    echo en
-  fi
-}
-
-PR_LANG_DETECTED="$(detect_language)"
-if [[ "$PR_LANG_DETECTED" == "zh" ]]; then
-  PR_TEMPLATE="references/pull_request_template_zh.md"
-else
-  PR_TEMPLATE="references/pull_request_template.md"
-fi
-
-# Always fallback to English template if language-specific template doesn't exist
-if [[ ! -f "$PR_TEMPLATE" ]]; then
-  warn "Template $PR_TEMPLATE not found, using English template as fallback"
-  PR_TEMPLATE="references/pull_request_template.md"
-fi
-info "Using PR template: $PR_TEMPLATE (lang=$PR_LANG_DETECTED)"
-
-if [[ -f "$PR_TEMPLATE" ]]; then
-  cp "$PR_TEMPLATE" "$PR_TEMP_FILE"
-else
-  cat > "$PR_TEMP_FILE" <<'EOF'
-# PR Summary
-
-## Overview
-Brief description of the purpose and impact of this PR.
-
-## Changes
-- Key changes listed here
-
-## Versioning
-- Version information
-
-## Testing
-- [ ] Tests completed
-
-## Checklist
-- [ ] Ready for review
-EOF
-fi
-
-# Localize dynamic bump label for template content
-localized_bump() {
-  local level="$1" lang="$2"
-  case "$lang" in
-    zh)
-      case "$level" in
-        major) echo "主版本";;
-        minor) echo "次版本";;
-        patch) echo "修订";;
-        *) echo "$level";;
-      esac
+  case "$file" in
+    manifest.json|package.json)
+      sed -i.bak "s/\"version\"[[:space:]]*:[[:space:]]*\"${from}\"/\"version\": \"${to}\"/" "$file"
+      ;;
+    pyproject.toml)
+      sed -i.bak "s/^version = \"${from}\"/version = \"${to}\"/" "$file"
+      ;;
+    setup.py)
+      sed -i.bak "s/version='${from}'/version='${to}'/" "$file"
+      sed -i.bak "s/version=\"${from}\"/version=\"${to}\"/" "$file"
       ;;
     *)
-      echo "$level"
+      err "Unknown version file format: $file"
+      return 1
       ;;
   esac
+  
+  rm -f "${file}.bak"
+  git add "$file"
+  return 0
 }
-L10N_SUG="$(localized_bump "$SUG" "$PR_LANG_DETECTED")"
 
-# Insert actual values
-sed -i.bak \
-  -e "s|Brief description.*|${PR_TITLE}|" \
-  -e "s|简要描述.*|${PR_TITLE}|" \
-  -e "s|X\.Y\.Z|${VER}|g" \
-  -e "s|A\.B\.C|${FINAL_VER}|g" \
-  -e "s|major/minor/patch|${L10N_SUG}|g" \
-  "$PR_TEMP_FILE"
-rm -f "${PR_TEMP_FILE}.bak"
+# === INPUT VALIDATION ===
+bold "PR Creator - Apply Phase"
 
-# 6) Create or Update PR via gh
-if [[ "$PR_MODE" == "update" ]]; then
+# Check required environment variables
+for var in PR_TITLE_AI VERSION_BUMP_AI PR_BRANCH; do
+  if [[ -z "${!var:-}" ]]; then
+    err "Missing required variable: $var"
+    exit 1
+  fi
+done
+
+PR_TITLE="${PR_TITLE_AI}"
+FINAL_LEVEL="${VERSION_BUMP_AI}"
+WORKING_BRANCH="${PR_BRANCH}"
+
+# Load PR description: from file if exists, otherwise from environment
+if [[ -f .github/pr-description.tmp ]]; then
+  info "Loading PR description from .github/pr-description.tmp"
+  PR_BODY="$(cat .github/pr-description.tmp)"
+elif [[ -n "${PR_BODY_AI:-}" ]]; then
+  info "Using PR description from PR_BODY_AI environment variable"
+  PR_BODY="${PR_BODY_AI}"
+else
+  err "Missing PR description: neither .github/pr-description.tmp exists nor PR_BODY_AI is set"
+  exit 1
+fi
+
+info "PR Title: $PR_TITLE"
+info "Branch: $WORKING_BRANCH"
+info "Version: $CURRENT_VER → $NEW_VER"
+info "Bump level: $FINAL_LEVEL"
+
+# === CHANGE TO BRANCH ===
+git checkout "$WORKING_BRANCH" 2>/dev/null || {
+  err "Failed to checkout branch: $WORKING_BRANCH"
+  exit 1
+}
+
+# === VERSION UPDATE ===
+if [[ "$FINAL_LEVEL" != "skip" ]] && [[ -n "$CURRENT_VER" ]] && [[ -n "$NEW_VER" ]] && [[ -n "$VERSION_FILE" ]]; then
+  bold "Updating version ($CURRENT_VER → $NEW_VER)"
+  if apply_version_bump "$CURRENT_VER" "$NEW_VER" "$VERSION_FILE"; then
+    git commit -m "chore: version bump ${CURRENT_VER} → ${NEW_VER}" || info "No version changes to commit"
+    git push origin "$(current_branch)" || true
+    info "Version updated and pushed"
+  else
+    warn "Version update failed; continuing with PR creation"
+  fi
+else
+  if [[ "$FINAL_LEVEL" == "skip" ]]; then
+    info "Skipping version update (as requested)"
+  else
+    info "Missing version info; skipping version update"
+  fi
+fi
+
+# === CREATE/UPDATE PR ===
+bold "Creating/updating PR"
+
+# Check for existing PR
+CBR="$(current_branch)"
+EXISTING_PR="$(check_existing_pr "$CBR")"
+
+if [[ -n "$EXISTING_PR" ]]; then
   bold "Updating PR #$EXISTING_PR..."
-  gh pr edit "$EXISTING_PR" --body-file "$PR_TEMP_FILE" || { err "gh pr edit failed"; exit 1; }
+  gh pr edit "$EXISTING_PR" --title "$PR_TITLE" --body "$PR_BODY" || {
+    err "Failed to update PR"
+    exit 1
+  }
   info "PR #$EXISTING_PR updated successfully"
 else
-  bold "Creating PR via gh..."
-  GH_ARGS=(--title "$PR_TITLE" --body-file "$PR_TEMP_FILE" --base master)
-  gh pr create "${GH_ARGS[@]}" || { err "gh pr create failed"; exit 1; }
+  bold "Creating new PR..."
+  gh pr create --title "$PR_TITLE" --body "$PR_BODY" --base master || {
+    err "Failed to create PR"
+    exit 1
+  }
   info "PR created successfully"
 fi
 
-rm -f "$PR_TEMP_FILE"
+# Cleanup temporary files
+rm -f .github/pr-description.tmp
+
+info "Done!"
