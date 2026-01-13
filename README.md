@@ -110,17 +110,18 @@ Most reliable for long, complex descriptions with special characters:
 
 ```bash
 mkdir -p .github
-# Use printf to safely write file (more reliable than cat + heredoc)
+# Use printf to safely write file (better than cat + heredoc)
 printf '%s\n' \
-  "## Overview" \
-  "Detailed description here..." \
+  "## 功能概览" \
+  "本 PR 添加了新的功能..." \
   "" \
-  "## Changes" \
-  "- Feature 1" \
-  "- Feature 2" > .github/pr-description.tmp
+  "## 主要改动" \
+  "- 功能 1" \
+  "- 功能 2" > .github/pr-description.tmp
 
 PR_BRANCH="feat/my-feature" \
-PR_TITLE_AI="feat: my feature" \
+PR_TITLE_AI="feat: 新增功能说明" \
+PR_LANG="zh-CN" \
 VERSION_BUMP_AI="minor" \
 CURRENT_VERSION="1.0.0" \
 NEW_VERSION="1.1.0" \
@@ -128,33 +129,50 @@ VERSION_FILE="manifest.json" \
 bash create-pr.sh
 ```
 
-**Advantages**: 
-- No shell escaping issues
-- Handles multi-line content reliably
-- Works with special characters
-- Auto-cleaned after PR creation
+**Why printf is better than heredoc:**
+- No variable expansion issues: `$var` is treated as literal text
+- No quote escaping needed: Single or double quotes work fine
+- No heredoc delimiter conflicts: No need to worry about `EOF` appearing in content
+- Better error handling: Each line is a separate argument
 
 #### Method 2: Environment Variable (for short descriptions)
 Simple approach for brief PR descriptions:
 
 ```bash
 PR_BRANCH="feat/my-feature" \
-PR_TITLE_AI="feat: my feature" \
-PR_BODY_AI="Brief one-line description" \
+PR_TITLE_AI="feat: 新增功能说明" \
+PR_BODY_AI="这是一个简短的 PR 描述，适合环境变量传递" \
+PR_LANG="zh-CN" \
 VERSION_BUMP_AI="minor" \
 ... bash create-pr.sh
 ```
+
+**Important**: Remember to include `PR_LANG="zh-CN"` when using Chinese titles/descriptions!
 
 #### Method 3: Stdin (flexible, avoids escaping)
 Pipe description from another command or script:
 
 ```bash
-echo "PR description from pipeline" | \
+# Example: Generate description from script
+generate_description() {
+  printf '%s\n' \
+    "## 什么是新功能" \
+    "这个 PR 实现了 X 功能..." \
+    "" \
+    "## 如何测试" \
+    "1. 步骤 1" \
+    "2. 步骤 2"
+}
+
+generate_description | \
 PR_BRANCH="feat/my-feature" \
-PR_TITLE_AI="feat: my feature" \
+PR_TITLE_AI="feat: 新增功能名称" \
+PR_LANG="zh-CN" \
 VERSION_BUMP_AI="minor" \
 ... bash create-pr.sh
 ```
+
+**Best for**: Dynamic content, avoiding escaping issues
 
 ### Why These Methods are Reliable
 

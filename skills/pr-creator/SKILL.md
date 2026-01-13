@@ -38,14 +38,20 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
 
 3. **Execute** (using most reliable method for your content):
    
-   **Method A - Temporary file (for long/complex content - RECOMMENDED)**:
+   **Method A - Temporary File with printf (RECOMMENDED)**:
    ```bash
    mkdir -p .github
-   # Use printf or echo to write file (more reliable than heredoc)
-   printf '%s\n' "## Overview" "Content here" > .github/pr-description.tmp
+   # Use printf - much more reliable than cat + heredoc
+   printf '%s\n' \
+     "## 功能说明" \
+     "这个 PR 实现了..." \
+     "" \
+     "## 改动" \
+     "- 功能 1" > .github/pr-description.tmp
    
    PR_BRANCH="feat/my-feature" \
-   PR_TITLE_AI="feat: add new feature" \
+   PR_TITLE_AI="feat: 新增功能" \
+   PR_LANG="zh-CN" \
    VERSION_BUMP_AI="minor" \
    CURRENT_VERSION="1.0.0" \
    NEW_VERSION="1.1.0" \
@@ -53,23 +59,29 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
    bash create-pr.sh
    ```
 
-   **Method B - Environment variable (for short content)**:
+   **Why printf?** No variable expansion, no quote issues, better reliability.
+
+   **Method B - Environment Variable (for short content)**:
    ```bash
    PR_BRANCH="feat/my-feature" \
-   PR_TITLE_AI="feat: add new feature" \
-   PR_BODY_AI="Brief description" \
+   PR_TITLE_AI="feat: 新增功能" \
+   PR_BODY_AI="简短的 PR 描述" \
+   PR_LANG="zh-CN" \
    VERSION_BUMP_AI="minor" \
    ... bash create-pr.sh
    ```
 
-   **Method C - Stdin (flexible, avoids escaping issues)**:
+   **Method C - Stdin (flexible, dynamic content)**:
    ```bash
    echo "PR description" | \
    PR_BRANCH="feat/my-feature" \
-   PR_TITLE_AI="feat: add new feature" \
+   PR_TITLE_AI="feat: 新增功能" \
+   PR_LANG="zh-CN" \
    VERSION_BUMP_AI="minor" \
    ... bash create-pr.sh
    ```
+
+   **Important**: Always set `PR_LANG` to match your conversation language!
 
 ## Usage
 
