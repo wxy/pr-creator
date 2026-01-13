@@ -101,8 +101,14 @@ bash skills/pr-creator/scripts/create-pr.sh
 ✅ **Pure AI Decisions**
 - No templates, no placeholders
 - AI generates complete, contextual descriptions
-- Supports any language (via AI generation)
+- Supports any language (via AI generation + PR_LANG variable)
+- Long descriptions can be written to `.github/pr-description.tmp`
 - No user interaction required
+
+✅ **Language Awareness**
+- PR title and body follow conversation language
+- Use `PR_LANG` environment variable to control (e.g., zh-CN, en)
+- Ensures consistency across PR in your preferred language
 
 ## Workflow (AI Perspective)
 
@@ -137,12 +143,15 @@ Required for script execution:
 | Variable | Purpose | Example |
 |----------|---------|---------|
 | `PR_BRANCH` | Current branch | `feat/new-feature` |
-| `PR_TITLE_AI` | PR title | `feat: add auth` |
+| `PR_TITLE_AI` | PR title (respects PR_LANG) | `feat: add auth` |
 | `PR_BODY_AI` | PR description | `## Overview...` |
 | `VERSION_BUMP_AI` | Version action | `minor`, `patch`, `skip` |
 | `CURRENT_VERSION` | Before version | `1.0.0` |
 | `NEW_VERSION` | After version | `1.1.0` |
 | `VERSION_FILE` | Version location | `package.json` |
+| `PR_LANG` *(optional)* | PR language | `zh-CN`, `en` |
+
+**Note**: For long PR descriptions, create `.github/pr-description.tmp` instead of passing via `PR_BODY_AI` - the script automatically reads it if present.
 
 ## Technical Details
 

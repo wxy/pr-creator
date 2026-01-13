@@ -8,12 +8,15 @@ set -euo pipefail
 #
 # Required environment variables (from AI):
 #   PR_BRANCH          - Branch name to work with
-#   PR_TITLE_AI        - AI-generated PR title
+#   PR_TITLE_AI        - AI-generated PR title (respects PR_LANG)
 #   PR_BODY_AI         - AI-generated PR body (can be inline or file path)
 #   VERSION_BUMP_AI    - AI's version decision (major/minor/patch/skip)
 #   CURRENT_VERSION    - Current version from analysis
 #   NEW_VERSION        - Target version (AI should calculate this)
 #   VERSION_FILE       - Which file contains version (manifest.json, package.json, etc.)
+#
+# Optional environment variables:
+#   PR_LANG            - Language for PR (e.g., zh-CN, en; defaults to en)
 #
 # For long descriptions, create PR body in .github/pr-description.tmp:
 #   AI writes description to .github/pr-description.tmp
@@ -107,9 +110,16 @@ else
   exit 1
 fi
 
+# Optional variables with defaults
+CURRENT_VER="${CURRENT_VERSION:-}"
+NEW_VER="${NEW_VERSION:-}"
+VERSION_FILE="${VERSION_FILE:-}"
+PR_LANG="${PR_LANG:-en}"
+
 info "PR Title: $PR_TITLE"
 info "Branch: $WORKING_BRANCH"
-info "Version: $CURRENT_VER → $NEW_VER"
+info "Language: $PR_LANG"
+[[ -n "$CURRENT_VER" ]] && info "Version: $CURRENT_VER → $NEW_VER"
 info "Bump level: $FINAL_LEVEL"
 
 # === CHANGE TO BRANCH ===
