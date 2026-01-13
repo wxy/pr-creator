@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # PR Creator - Apply: Use AI-generated decisions to create/update PR
-# Dependencies: git, gh, sed
+# Dependencies: git, gh
 # 
 # Required environment variables (from AI):
 #   PR_BRANCH          - Branch name to work with
@@ -12,7 +12,6 @@ set -euo pipefail
 #   CURRENT_VERSION    - Current version from analysis
 #   NEW_VERSION        - Target version (AI should calculate this)
 #   VERSION_FILE       - Which file contains version (manifest.json, package.json, etc.)
-#   PR_LANG            - Language for template selection (zh/en)
 #
 # Usage: PR_TITLE_AI="..." PR_BODY_AI="..." bash create-pr-apply.sh
 
@@ -112,36 +111,24 @@ fi
 # === CREATE/UPDATE PR ===
 bold "Creating/updating PR"
 
-# Prepare temporary PR body file
-mkdir -p .github
-PR_TEMP_FILE=".github/.pr_body_from_ai.md"
-
-# Write AI-generated body to file
-cat > "$PR_TEMP_FILE" <<'EOF'
-$PR_BODY
-EOF
-
 # Check for existing PR
 CBR="$(current_branch)"
 EXISTING_PR="$(check_existing_pr "$CBR")"
 
 if [[ -n "$EXISTING_PR" ]]; then
   bold "Updating PR #$EXISTING_PR..."
-  gh pr edit "$EXISTING_PR" --body-file "$PR_TEMP_FILE" || {
+  gh pr edit "$EXISTING_PR" --title "$PR_TITLE" --body "$PR_BODY" || {
     err "Failed to update PR"
     exit 1
   }
   info "PR #$EXISTING_PR updated successfully"
 else
   bold "Creating new PR..."
-  gh pr create --title "$PR_TITLE" --body-file "$PR_TEMP_FILE" --base master || {
+  gh pr create --title "$PR_TITLE" --body "$PR_BODY" --base master || {
     err "Failed to create PR"
     exit 1
   }
   info "PR created successfully"
 fi
-
-# Cleanup
-rm -f "$PR_TEMP_FILE"
 
 info "Done!"

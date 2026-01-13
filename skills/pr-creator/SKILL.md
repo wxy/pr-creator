@@ -49,29 +49,21 @@ bash skills/pr-creator/scripts/create-pr.sh
 
 ### Conversation Language & Localization
 
-When the AI detects the conversation language, it will:
-- Set appropriate environment variable (`PR_LANG=zh` for Chinese, etc.)
-- Use matching template: Chinese → `references/pull_request_template_zh.md`, English → `references/pull_request_template.md`
-- Generate all dynamic content in the conversation language
+The skill automatically detects conversation language and generates PR content in the appropriate language:
+- **Chinese** (`PR_LANG=zh`): PR description in Chinese
+- **English** (default): PR description in English
 
-**Example**: For Chinese conversation "创建 PR", the skill will:
-```bash
-PR_LANG=zh bash scripts/create-pr.sh
-```
-
-This ensures the PR description language matches the user's conversation language.
+When invoked from OpenSkills, the AI assistant will generate all PR content in the conversation language.
 
 ## Capabilities
 
 - Analyze commits and detect change types (BREAKING/`!`, `feat`, `fix`, `refactor`, etc.)
 - Suggest a semantic version bump based on commits
-- Prompt the user to accept/adjust/skip the bump
-- Update `manifest.json` version (if present)
-- **Detect conversation language** and use appropriate PR template
-- Generate structured PR descriptions in the user's language
+- Auto-detect version files (manifest.json, package.json, pyproject.toml, setup.py)
+- **AI-generated PR titles and descriptions** (no templates needed)
+- Automatic language detection for content generation
 - **Check for existing PR** and update instead of creating duplicates
-- Optionally rename branch to match PR title
-- Create or update PR via `gh` CLI
+- Create or update PR via `gh` CLI (zero dependencies beyond git + gh)
 
 ## Workflow
 
