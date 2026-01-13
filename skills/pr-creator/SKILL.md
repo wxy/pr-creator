@@ -75,74 +75,81 @@ This ensures the PR description language matches the user's conversation languag
 
 ## Workflow
 
-The skill follows these steps, with full AI automation when invoked from conversation:
+The PR creation is split into two phases for optimal AI decision-making:
+
+### Phase 1: Analyze (`create-pr-analyze.sh`)
 
 1. **Check for existing PR** on current branch
-   - If found → update mode (edit PR description)
-   - If not found → create mode
-
 2. **Analyze commits** since `origin/master`
    - Detect change types (BREAKING, feat, fix, etc.)
-   - Count feat commits for intelligent version suggestion
-   - (ANALYSIS_ONLY mode: output analysis and exit for AI processing)
+   - Suggest semantic version bump
+3. **Output analysis** in key=value format
+   - Current branch, version, proposed version
+   - Recent commit messages
+   - Suggested version bump level
 
-3. **Suggest version bump** based on commits:
-   - **Major**: BREAKING CHANGE or `!:` prefix
-   - **Minor**: 2+ `feat:` commits (multiple user-facing features)
-   - **Patch**: Single `feat:`, `fix`, `refactor`, `docs`, etc.
+### Phase 2: Apply (`create-pr-apply.sh`)
 
-4. **AI-Driven Decision** (when PR_TITLE_AI and VERSION_BUMP_AI provided):
-   - Use AI-generated PR title directly
-   - Apply AI's version bump decision immediately
-   - No user interaction required
-   - Fall back to interactive mode if AI variables not set
+Applies AI-generated decisions to create/update PR:
 
-5. **Apply bump** (if not skipped):
+1. **Validate inputs** - Check for required AI variables
+2. **Update version** (if not skipped)
    - Detect and update version file (manifest.json, package.json, pyproject.toml, setup.py)
    - Create commit and push
+3. **Create or update PR** via `gh` CLI
+   - If PR exists on branch → update body
+   - Otherwise → create new PR with title and body
+4. **Clean up** - Remove temporary files
 
-6. **Detect conversation language** and prepare PR:
-   - Chinese conversation → use `references/pull_request_template_zh.md`
-   - English/other → use `references/pull_request_template.md`
-   - Generate all content in conversation language
+### Wrapper Script (`create-pr.sh` - backward compatible)
 
-7. **Generate PR description**:
-   - Use language-matched template
-   - Replace placeholders (version numbers, bump reason, overview)
-   - Create temporary file at `.github/.pr_description_tmp.md`
+Orchestrates both phases:
 
-8. **Optional branch rename** (only with AUTO_RENAME=true):
-   - Rename branch to match PR title slug
-   - Update remote reference
-
-9. **Create or update PR** via `gh` CLI:
-   - **Create**: `gh pr create --title "..." --body-file .github/.pr_description_tmp.md --base master`
-   - **Update**: `gh pr edit <number> --body-file .github/.pr_description_tmp.md`
-   - Clean up temporary file
+1. Run analyze phase
+2. Either:
+   - Use AI-provided decisions (PR_TITLE_AI, PR_BODY_AI, VERSION_BUMP_AI)
+   - Or prompt user for confirmation
+3. Run apply phase with final decisions
 
 ## AI Integration
 
-The skill supports full AI automation through environment variables:
+The skill is now split into two phases for optimal AI decision-making:
 
-**Analysis Mode** (read PR details):
+**Phase 1: Analyze** (`create-pr-analyze.sh`)
 ```bash
-ANALYSIS_ONLY=true bash create-pr.sh
-# Outputs: branch, version, suggested bump, commits (for AI to analyze)
+bash create-pr-analyze.sh
+# Outputs: branch, version, suggested bump, recent commits
+# AI reads this to understand what changes are being proposed
 ```
 
-**Autonomous Mode** (AI makes all decisions):
+**Phase 2: Apply** (`create-pr-apply.sh`)
 ```bash
-PR_TITLE_AI="Your PR Title" \
+PR_TITLE_AI="Your title" \
+PR_BODY_AI="Your body" \
 VERSION_BUMP_AI="minor" \
-bash create-pr.sh
-# Creates/updates PR with AI-provided values, zero interaction
+NEW_VERSION="1.5.0" \
+bash create-pr-apply.sh
+# Uses AI decisions to create/update PR with zero interaction
 ```
 
-When called from OpenSkills in conversation, the AI assistant will:
-1. Run script with `ANALYSIS_ONLY=true` to gather PR details
-2. Analyze commits and suggest optimal PR title and version bump
-3. Re-run script with `PR_TITLE_AI` and `VERSION_BUMP_AI` to create PR
-4. Report success to user in conversation
+**Unified Workflow** (`create-pr.sh` - backward compatible)
+```bash
+# Interactive mode
+bash create-pr.sh
+# Prompts user for decisions
+
+# Autonomous AI mode (set environment variables first)
+PR_TITLE_AI="..." PR_BODY_AI="..." VERSION_BUMP_AI="minor" bash create-pr.sh
+```
+
+### Usage from OpenSkills
+
+When invoked from conversation, the AI assistant will:
+1. Run `create-pr-analyze.sh` to gather PR analysis
+2. Analyze commits and generate optimal PR title and body
+3. Determine appropriate version bump (major/minor/patch/skip)
+4. Run `create-pr-apply.sh` with AI-generated decisions
+5. Report success to user
 
 ## Installation & Version Control
 
