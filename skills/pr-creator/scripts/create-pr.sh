@@ -9,20 +9,33 @@ set -euo pipefail
 # Required environment variables (from AI):
 #   PR_BRANCH          - Branch name to work with
 #   PR_TITLE_AI        - AI-generated PR title
-#   PR_BODY_AI         - AI-generated PR body (full description)
+#   PR_BODY_AI         - AI-generated PR body (can be inline or file path)
 #   VERSION_BUMP_AI    - AI's version decision (major/minor/patch/skip)
 #   CURRENT_VERSION    - Current version from analysis
 #   NEW_VERSION        - Target version (AI should calculate this)
 #   VERSION_FILE       - Which file contains version (manifest.json, package.json, etc.)
 #
-# Usage: 
+# For long descriptions, create PR body in .github/pr-description.tmp:
+#   AI writes description to .github/pr-description.tmp
+#   Script automatically reads it if file exists
+#
+# Usage (short description): 
 #   PR_BRANCH="feat/my-feature" \
 #   PR_TITLE_AI="feat: add new feature" \
-#   PR_BODY_AI="Detailed description..." \
+#   PR_BODY_AI="Brief description" \
 #   VERSION_BUMP_AI="minor" \
 #   CURRENT_VERSION="1.0.0" \
 #   NEW_VERSION="1.1.0" \
 #   VERSION_FILE="manifest.json" \
+#   bash create-pr.sh
+#
+# Usage (long description):
+#   mkdir -p .github
+#   cat > .github/pr-description.tmp << 'EOF'
+#   ## Overview
+#   Detailed PR description...
+#   EOF
+#   PR_BRANCH="..." PR_TITLE_AI="..." VERSION_BUMP_AI="..." \
 #   bash create-pr.sh
 
 bold() { printf "\033[1m%s\033[0m\n" "$1"; }
@@ -71,7 +84,7 @@ apply_version_bump() {
 bold "PR Creator - Apply Phase"
 
 # Check required environment variables
-for var in PR_TITLE_AI PR_BODY_AI VERSION_BUMP_AI PR_BRANCH; do
+for var in PR_TITLE_AI VERSION_BUMP_AI PR_BRANCH; do
   if [[ -z "${!var:-}" ]]; then
     err "Missing required variable: $var"
     exit 1
@@ -79,15 +92,20 @@ for var in PR_TITLE_AI PR_BODY_AI VERSION_BUMP_AI PR_BRANCH; do
 done
 
 PR_TITLE="${PR_TITLE_AI}"
-PR_BODY="${PR_BODY_AI}"
 FINAL_LEVEL="${VERSION_BUMP_AI}"
 WORKING_BRANCH="${PR_BRANCH}"
 
-# Optional variables with defaults
-CURRENT_VER="${CURRENT_VERSION:-}"
-NEW_VER="${NEW_VERSION:-}"
-VERSION_FILE="${VERSION_FILE:-}"
-PR_LANG="${PR_LANG:-en}"
+# Load PR description: from file if exists, otherwise from environment
+if [[ -f .github/pr-description.tmp ]]; then
+  info "Loading PR description from .github/pr-description.tmp"
+  PR_BODY="$(cat .github/pr-description.tmp)"
+elif [[ -n "${PR_BODY_AI:-}" ]]; then
+  info "Using PR description from PR_BODY_AI environment variable"
+  PR_BODY="${PR_BODY_AI}"
+else
+  err "Missing PR description: neither .github/pr-description.tmp exists nor PR_BODY_AI is set"
+  exit 1
+fi
 
 info "PR Title: $PR_TITLE"
 info "Branch: $WORKING_BRANCH"
@@ -140,5 +158,8 @@ else
   }
   info "PR created successfully"
 fi
+
+# Cleanup temporary files
+rm -f .github/pr-description.tmp
 
 info "Done!"
