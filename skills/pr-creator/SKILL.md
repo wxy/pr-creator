@@ -36,18 +36,52 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
    - Calculate new version number
    - Determine bump level (major/minor/patch/skip)
 
-3. **Execute**:
+3. **Execute** (using most reliable method for your content):
+   
+   **Method A - Temporary File with printf (RECOMMENDED)**:
    ```bash
+   mkdir -p .github
+   # Use printf - much more reliable than cat + heredoc
+   printf '%s\n' \
+     "## 功能说明" \
+     "这个 PR 实现了..." \
+     "" \
+     "## 改动" \
+     "- 功能 1" > .github/pr-description.tmp
+   
    PR_BRANCH="feat/my-feature" \
-   PR_TITLE_AI="feat: add new feature" \
-   PR_BODY_AI="## What
-This PR adds..." \
+   PR_TITLE_AI="feat: 新增功能" \
+   PR_LANG="zh-CN" \
    VERSION_BUMP_AI="minor" \
    CURRENT_VERSION="1.0.0" \
    NEW_VERSION="1.1.0" \
    VERSION_FILE="package.json" \
    bash create-pr.sh
    ```
+
+   **Why printf?** No variable expansion, no quote issues, better reliability.
+
+   **Method B - Environment Variable (for short content)**:
+   ```bash
+   PR_BRANCH="feat/my-feature" \
+   PR_TITLE_AI="feat: 新增功能" \
+   PR_BODY_AI="简短的 PR 描述" \
+   PR_LANG="zh-CN" \
+   VERSION_BUMP_AI="minor" \
+   ... bash create-pr.sh
+   ```
+
+   **Method C - Stdin (flexible, dynamic content)**:
+   ```bash
+   echo "PR description" | \
+   PR_BRANCH="feat/my-feature" \
+   PR_TITLE_AI="feat: 新增功能" \
+   PR_LANG="zh-CN" \
+   VERSION_BUMP_AI="minor" \
+   ... bash create-pr.sh
+   ```
+
+   **Important**: Always set `PR_LANG` to match your conversation language!
 
 ## Usage
 
@@ -101,8 +135,14 @@ bash skills/pr-creator/scripts/create-pr.sh
 ✅ **Pure AI Decisions**
 - No templates, no placeholders
 - AI generates complete, contextual descriptions
-- Supports any language (via AI generation)
+- Supports any language (via AI generation + PR_LANG variable)
+- Long descriptions can be written to `.github/pr-description.tmp`
 - No user interaction required
+
+✅ **Language Awareness**
+- PR title and body follow conversation language
+- Use `PR_LANG` environment variable to control (e.g., zh-CN, en)
+- Ensures consistency across PR in your preferred language
 
 ## Workflow (AI Perspective)
 
@@ -137,12 +177,15 @@ Required for script execution:
 | Variable | Purpose | Example |
 |----------|---------|---------|
 | `PR_BRANCH` | Current branch | `feat/new-feature` |
-| `PR_TITLE_AI` | PR title | `feat: add auth` |
+| `PR_TITLE_AI` | PR title (respects PR_LANG) | `feat: add auth` |
 | `PR_BODY_AI` | PR description | `## Overview...` |
 | `VERSION_BUMP_AI` | Version action | `minor`, `patch`, `skip` |
 | `CURRENT_VERSION` | Before version | `1.0.0` |
 | `NEW_VERSION` | After version | `1.1.0` |
 | `VERSION_FILE` | Version location | `package.json` |
+| `PR_LANG` *(optional)* | PR language | `zh-CN`, `en` |
+
+**Note**: For long PR descriptions, create `.github/pr-description.tmp` instead of passing via `PR_BODY_AI` - the script automatically reads it if present.
 
 ## Technical Details
 

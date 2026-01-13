@@ -5,14 +5,13 @@ A minimal, dependency-light skill to automate Pull Request creation with semanti
 ## Features
 
 - ✅ **AI-Driven Automation**: Full autonomous PR creation with AI-generated titles and version decisions
+- ✅ **Multi-Language Support**: PR titles and descriptions follow your conversation language (中文, English, etc.)
 - ✅ Analyze commits and suggest semantic version bumps
 - ✅ Support for multiple version file formats (manifest.json, package.json, pyproject.toml, setup.py)
-- ✅ **Multi-language PR templates** (English/中文)
-- ✅ **Automatic language detection** from conversation context
 - ✅ **Smart PR update**: Updates existing PR instead of creating duplicates
-- ✅ Structured PR descriptions from templates
-- ✅ Multi-version file support (Plasmo/Node.js, Python, generic projects)
-- ✅ Zero external dependencies (POSIX shell + `sed`)
+- ✅ **Long Description Support**: PR descriptions can be written to `.github/pr-description.tmp` for complex content
+- ✅ Pure AI-generated descriptions (no templates)
+- ✅ Zero external dependencies (POSIX shell + `sed` + `git` + `gh`)
 
 ## Requirements
 
@@ -39,9 +38,11 @@ Then in your AI conversation, simply say:
 
 The AI will automatically:
 1. Analyze your commits and determine optimal PR title and version bump
-2. Update version in detected file (manifest.json, package.json, pyproject.toml, or setup.py)
-3. Generate a structured PR description in your conversation language
-4. Create the PR using GitHub CLI - **zero interaction required**
+2. Generate PR title and description in your conversation language
+3. Update version in detected file (manifest.json, package.json, pyproject.toml, or setup.py)
+4. Create or update the PR using GitHub CLI - **zero interaction required**
+
+**Language Note**: PR titles and descriptions will follow your conversation language automatically via the `PR_LANG` environment variable.
 
 ### Option 2: Direct Script Execution
 
@@ -98,25 +99,102 @@ The script automatically detects the appropriate version bump based on commit me
 
 Follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](https://www.conventionalcommits.org/).
 
-## Configuration
+## Advanced Usage
 
-### PR Templates
+### PR Description Methods
 
-The tool uses PR templates bundled in the skill:
-- `skills/pr-creator/references/pull_request_template.md` - English template (default)
-- `skills/pr-creator/references/pull_request_template_zh.md` - Chinese template
+The script supports **3 reliable methods** for providing PR descriptions (choose based on your use case):
 
-When using via OpenSkills with AI conversation, the appropriate template is automatically selected based on your conversation language.
+#### Method 1: Temporary File (RECOMMENDED for complex content)
+Most reliable for long, complex descriptions with special characters:
 
-You can also force the template selection via environment variables:
+```bash
+mkdir -p .github
+# Use printf to safely write file (better than cat + heredoc)
+printf '%s\n' \
+  "## 功能概览" \
+  "本 PR 添加了新的功能..." \
+  "" \
+  "## 主要改动" \
+  "- 功能 1" \
+  "- 功能 2" > .github/pr-description.tmp
 
-- Set `PR_LANG=zh` to use the Chinese template explicitly.
-- Otherwise, the script falls back to the system locale `LANG` (e.g., `zh_CN`, `zh-CN`) to auto-detect Chinese; default is English.
-- **Fallback**: If the language-specific template doesn't exist, the English template is used as default.
-- Placeholders (`X.Y.Z`, `A.B.C`, `major/minor/patch`) are replaced in both templates; the overview line is replaced for English and Chinese.
-- **AI Integration**: When used with AI (via OpenSkills), the AI should generate all dynamic content (Overview, Changes, Notes) in the same language as the conversation.
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: 新增功能说明" \
+PR_LANG="zh-CN" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="manifest.json" \
+bash create-pr.sh
+```
 
-Example:
+**Why printf is better than heredoc:**
+- No variable expansion issues: `$var` is treated as literal text
+- No quote escaping needed: Single or double quotes work fine
+- No heredoc delimiter conflicts: No need to worry about `EOF` appearing in content
+- Better error handling: Each line is a separate argument
+
+#### Method 2: Environment Variable (for short descriptions)
+Simple approach for brief PR descriptions:
+
+```bash
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: 新增功能说明" \
+PR_BODY_AI="这是一个简短的 PR 描述，适合环境变量传递" \
+PR_LANG="zh-CN" \
+VERSION_BUMP_AI="minor" \
+... bash create-pr.sh
+```
+
+**Important**: Remember to include `PR_LANG="zh-CN"` when using Chinese titles/descriptions!
+
+#### Method 3: Stdin (flexible, avoids escaping)
+Pipe description from another command or script:
+
+```bash
+# Example: Generate description from script
+generate_description() {
+  printf '%s\n' \
+    "## 什么是新功能" \
+    "这个 PR 实现了 X 功能..." \
+    "" \
+    "## 如何测试" \
+    "1. 步骤 1" \
+    "2. 步骤 2"
+}
+
+generate_description | \
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: 新增功能名称" \
+PR_LANG="zh-CN" \
+VERSION_BUMP_AI="minor" \
+... bash create-pr.sh
+```
+
+**Best for**: Dynamic content, avoiding escaping issues
+
+### Why These Methods are Reliable
+
+| Method | Best For | Reliability | Escaping |
+|--------|----------|-------------|----------|
+| **File** | Complex, multi-line | ⭐⭐⭐⭐⭐ | None needed |
+| **Env Var** | Short content | ⭐⭐⭐⭐ | Some care needed |
+| **Stdin** | Dynamic content | ⭐⭐⭐⭐⭐ | None needed |
+| heredoc (cat) | Legacy | ⭐⭐⭐ | Issues with quotes, variables |
+
+### Language Control
+
+Use the `PR_LANG` environment variable to control the language of PR content:
+
+```bash
+PR_LANG="zh-CN" \  # Chinese
+PR_BRANCH="..." \
+PR_TITLE_AI="feat: 我的功能" \
+... bash create-pr.sh
+```
+
+Supported values: `zh-CN`, `en`, or any ISO language code.
 
 ```bash
 PR_LANG=zh bash skills/pr-creator/scripts/create-pr.sh
