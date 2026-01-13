@@ -27,14 +27,15 @@ Clone this repository to your local skills directory or use the script directly.
 
 ### With OpenSkills (Recommended)
 
-```bash
-# Use the skill in your project
-openskills use pr-creator "Create a PR"
+After installation and sync, simply trigger the skill in conversation:
 
-# Or trigger with specific commands
-openskills use pr-creator "Suggest version bump"
-openskills use pr-creator "Update version and open PR"
-```
+**Trigger phrases**:
+- "创建 PR" (Chinese)
+- "Create a PR" (English)
+- "Suggest version bump"
+- "Update version and open PR"
+
+The AI will automatically invoke this skill to help you create or update PRs.
 
 ### Direct Script Execution
 
@@ -46,100 +47,86 @@ bash .claude/skills/pr-creator/scripts/create-pr.sh
 bash skills/pr-creator/scripts/create-pr.sh
 ```
 
-### Conversation Language → Template
+### Conversation Language & Localization
 
-When invoked via OpenSkills, set the language based on the conversation:
+When the AI detects the conversation language, it will:
+- Set appropriate environment variable (`PR_LANG=zh` for Chinese, etc.)
+- Use matching template: Chinese → `references/pull_request_template_zh.md`, English → `references/pull_request_template.md`
+- Generate all dynamic content in the conversation language
 
+**Example**: For Chinese conversation "创建 PR", the skill will:
 ```bash
-# Chinese conversation
 PR_LANG=zh bash scripts/create-pr.sh
-
-# Or pass via CLI flag
-bash scripts/create-pr.sh --lang zh
 ```
 
-OpenSkills integrators should propagate the chat language (e.g., "创建 PR") to `PR_LANG` or `--lang` so the script uses `references/pull_request_template_zh.md`.
-
-## Triggers
-- "Create a PR"
-- "Suggest version bump"
-- "Update version and open PR"
+This ensures the PR description language matches the user's conversation language.
 
 ## Capabilities
+
 - Analyze commits and detect change types (BREAKING/`!`, `feat`, `fix`, `refactor`, etc.)
-- Suggest a semantic version bump: major > minor > patch
+- Suggest a semantic version bump based on commits
 - Prompt the user to accept/adjust/skip the bump
 - Update `manifest.json` version (if present)
-- **Detect user's conversation language** and use appropriate PR template
-- Generate a structured PR description (see `.github/pull_request_template.md` or `pull_request_template_zh.md`)
-- **Check for existing PR** on current branch and update instead of creating new one
-- Rename current branch to match the PR title (optional)
-- Create or update PR via `gh`
+- **Detect conversation language** and use appropriate PR template
+- Generate structured PR descriptions in the user's language
+- **Check for existing PR** and update instead of creating duplicates
+- Optionally rename branch to match PR title
+- Create or update PR via `gh` CLI
 
 ## Workflow
-1. **Check for existing PR**:
-```bash
-gh pr list --head $(git branch --show-current)
-```
-   - If PR exists → update mode (edit PR description)
-   - If no PR exists → create mode
 
-2. **Detect user's language**:
-   - Analyze recent conversation messages
-   - Chinese/中文 → use `references/pull_request_template_zh.md`
-   - English/default → use `references/pull_request_template.md`
+The skill follows these steps:
 
-3. Gather changes:
-```bash
-git log origin/master..HEAD --format="%h %s"
-git diff --stat origin/master..HEAD
-```
+1. **Check for existing PR** on current branch
+   - If found → update mode (edit PR description)
+   - If not found → create mode
 
-4. Decide bump:
-- BREAKING or `!` in commits → major
-- 2+ `feat:` commits → minor (multiple user-facing features)
-- Single `feat:` or `fix`/`refactor`/`docs`/`style`/`perf` → patch
+2. **Analyze commits** since `origin/master`
+   - Detect change types (BREAKING, feat, fix, etc.)
+   - Count feat commits for intelligent version suggestion
 
-5. Confirm with user:
-- Accept suggestion
-- Try alternative level
-- Skip bump
+3. **Suggest version bump** based on commits:
+   - **Major**: BREAKING CHANGE or `!:` prefix
+   - **Minor**: 2+ `feat:` commits (multiple user-facing features)
+   - **Patch**: Single `feat:`, `fix`, `refactor`, `docs`, etc.
 
-6. Apply bump (if confirmed):
-- Update `manifest.json` version via sed
-- Create commit and push
+4. **Confirm with user**:
+   - Accept suggestion
+   - Choose alternative level (major/minor/patch)
+   - Skip version update
 
-7. Generate PR description:
- - Use language-appropriate template from `references/pull_request_template.md` or `references/pull_request_template_zh.md`
- - **IMPORTANT**: Generate all dynamic content (Overview, Changes, Notes) in the **same language as the conversation**
-   - Chinese conversation → Use zh template + generate content in Chinese
-   - English conversation → Use en template + generate content in English
-   - Other languages → Use en template + generate content in conversation language
- - Generate temporary file at `.github/.pr_description_tmp.md` (not committed to git)
- - Include version bump details and key changes
- - Replace placeholders: version numbers (X.Y.Z, A.B.C), bump level (localized), overview line
+5. **Apply bump** (if confirmed):
+   - Update `manifest.json` version
+   - Create commit and push
 
-## Installation & Version Control Notes
+6. **Detect conversation language** and prepare PR:
+   - Chinese conversation → use `references/pull_request_template_zh.md`
+   - English/other → use `references/pull_request_template.md`
+   - Generate all content in conversation language
 
-- Installed skills are placed under `.claude/skills/` and are installation artifacts; do not commit them to git. The repository includes `.gitignore` rules to exclude `.claude/`.
-- Universal installs (shared across projects) use `.agent/skills/`. These are also installation artifacts and excluded from version control.
-- The source of truth is the remote repository `wxy/pr-creator`. Re-run `openskills install wxy/pr-creator -y` and `openskills sync -y` after updates to stay current.
+7. **Generate PR description**:
+   - Use language-matched template
+   - Replace placeholders (version numbers, bump reason, overview)
+   - Create temporary file at `.github/.pr_description_tmp.md`
 
-8. Rename branch (optional):
-- Derive slug from PR title
-- `git branch -m <new>` and `git push --set-upstream origin <new>`
+8. **Optionally rename branch** to match PR title slug
 
-9. Create or update PR via `gh`:
-   - **Create**: `gh pr create --title "..." --body-file .github/.pr_description_tmp.md`
+9. **Create or update PR** via `gh` CLI:
+   - **Create**: `gh pr create --title "..." --body-file .github/.pr_description_tmp.md --base master`
    - **Update**: `gh pr edit <number> --body-file .github/.pr_description_tmp.md`
-   - Temporary file is cleaned up after PR creation/update
+   - Clean up temporary file
 
-## Minimal Script
-See `scripts/create-pr.sh` for an implementation using POSIX shell and `gh`.
+## Installation & Version Control
 
-## Future Enhancements
-- Add support for more project files (package.json, pyproject.toml)
-- CI hooks to validate version bump after PR creation
+- Installed skills are placed under `.claude/skills/` as installation artifacts; do not commit them to git
+- The repository includes `.gitignore` rules to exclude `.claude/`
+- For universal/shared installs, skills use `.agent/skills/` directory
+- Source of truth: remote repository `wxy/pr-creator`
+- To update locally: `openskills install wxy/pr-creator -y && openskills sync -y`
 
-## License
-MIT
+## Implementation Notes
+
+- Uses POSIX shell script (`scripts/create-pr.sh`) with `git` and `gh` CLI
+- No external dependencies beyond shell basics and GitHub CLI
+- Cross-platform compatible (macOS, Linux)
+- Supports environment variable overrides (`PR_LANG`, `--lang` flag)
