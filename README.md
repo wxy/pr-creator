@@ -32,10 +32,11 @@ If you have [OpenSkills](https://github.com/openskills/openskills) installed:
 # Install the skill
 openskills install wxy/pr-creator -y
 openskills sync -y
-
-# Use it to create PRs in conversation
-# Just say: "创建 PR" or "Create a PR"
 ```
+
+Then in your AI conversation, simply say:
+- "创建 PR" (Chinese)
+- "Create a PR" (English)
 
 The skill will automatically:
 1. Analyze your commits and suggest a semantic version bump

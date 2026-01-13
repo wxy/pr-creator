@@ -27,14 +27,15 @@ Clone this repository to your local skills directory or use the script directly.
 
 ### With OpenSkills (Recommended)
 
-```bash
-# Use the skill in your project
-openskills use pr-creator "Create a PR"
+After installation and sync, simply trigger the skill in conversation:
 
-# Or trigger with specific commands
-openskills use pr-creator "Suggest version bump"
-openskills use pr-creator "Update version and open PR"
-```
+**Trigger phrases**:
+- "创建 PR" (Chinese)
+- "Create a PR" (English)
+- "Suggest version bump"
+- "Update version and open PR"
+
+The AI will automatically invoke this skill to help you create or update PRs.
 
 ### Direct Script Execution
 
