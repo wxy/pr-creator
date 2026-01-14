@@ -105,11 +105,11 @@ Follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](ht
 
 The script supports **multiple methods** for providing PR descriptions:
 
-#### Method 1: create_file Tool (RECOMMENDED for AI Assistants)
-AI assistants should use the `create_file` tool to create description files:
+#### Method 1: create_file Tool (ONLY OPTION for AI Assistants)
+AI assistants MUST use the `create_file` tool to create description files:
 
 ```python
-# Most reliable for AI assistants
+# ONLY reliable method for AI
 create_file(
   filePath=".github/pr-description.tmp",
   content="""## Overview
@@ -121,16 +121,28 @@ Detailed description...
 """
 )
 
-# Then call the script
+# Then call the script with correct path
 run_in_terminal(
-  command="bash create-pr.sh",
-  env={"PR_BRANCH": "...", "PR_TITLE_AI": "...", ...}
+  command="bash skills/pr-creator/scripts/create-pr.sh",
+  env={
+    "PR_BRANCH": "feat/my-feature",
+    "PR_TITLE_AI": "feat: new feature",
+    "PR_LANG": "en",
+    "VERSION_BUMP_AI": "minor",
+    "CURRENT_VERSION": "1.0.0",
+    "NEW_VERSION": "1.1.0",
+    "VERSION_FILE": "manifest.json"
+  }
 )
 ```
 
-**Why this is best for AI**: No shell escaping, no heredoc issues, reliable in AI environments
+**Why create_file is REQUIRED for AI**: 
+- No shell escaping issues
+- No heredoc conflicts
+- Completely reliable in AI environments
+- **Other methods are NOT suitable for AI**
 
-#### Method 2: printf (for Human Terminal Use)
+#### Method 2: printf (for Human Terminal Use - NOT for AI)
 When executing manually in terminal, use printf for reliable file creation:
 
 ```bash
@@ -151,62 +163,72 @@ VERSION_BUMP_AI="minor" \
 CURRENT_VERSION="1.0.0" \
 NEW_VERSION="1.1.0" \
 VERSION_FILE="manifest.json" \
-bash create-pr.sh
+bash skills/pr-creator/scripts/create-pr.sh
 ```
 
-**Why printf is better than heredoc:**
+**When to use printf**: Only for manual terminal use. AI assistants should ALWAYS use create_file.
 - No variable expansion issues: `$var` is treated as literal text
 - No quote escaping needed: Single or double quotes work fine
 - No heredoc delimiter conflicts: No need to worry about `EOF` appearing in content
 - Better error handling: Each line is a separate argument
 
-#### Method 3: Environment Variable (for short descriptions)
-Simple approach for brief PR descriptions:
+#### Method 3: Environment Variable (for short descriptions - NOT for AI)
+Simple approach for brief PR descriptions (manual use only):
 
 ```bash
 PR_BRANCH="feat/my-feature" \
 PR_TITLE_AI="feat: 新增功能说明" \
-PR_BODY_AI="这是一个简短的 PR 描述，适合环境变量传递" \
+PR_BODY_AI="这是一个简短的 PR 描述，只适合手动执行" \
 PR_LANG="zh-CN" \
 VERSION_BUMP_AI="minor" \
-... bash create-pr.sh
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="manifest.json" \
+bash skills/pr-creator/scripts/create-pr.sh
 ```
 
-**Important**: Remember to include `PR_LANG="zh-CN"` when using Chinese titles/descriptions!
+**Note**: Not recommended for AI. Use create_file instead.
 
-#### Method 4: Stdin (flexible, avoids escaping)
+#### Method 4: Stdin (NOT for AI - use create_file instead)
 Pipe description from another command or script:
 
 ```bash
-# Example: Generate description from script
+# Example: For manual terminal use only
 generate_description() {
   printf '%s\n' \
-    "## 什么是新功能" \
-    "这个 PR 实现了 X 功能..." \
+    "## Feature Description" \
+    "This PR implements..." \
     "" \
-    "## 如何测试" \
-    "1. 步骤 1" \
-    "2. 步骤 2"
+    "## Testing" \
+    "1. Step 1" \
+    "2. Step 2"
 }
 
 generate_description | \
 PR_BRANCH="feat/my-feature" \
-PR_TITLE_AI="feat: 新增功能名称" \
-PR_LANG="zh-CN" \
+PR_TITLE_AI="feat: new feature" \
+PR_LANG="en" \
 VERSION_BUMP_AI="minor" \
-... bash create-pr.sh
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="package.json" \
+bash skills/pr-creator/scripts/create-pr.sh
 ```
+
+**Note**: This is for manual terminal use. AI assistants should ONLY use create_file method.
 
 **Best for**: Dynamic content, avoiding escaping issues
 
-### Why These Methods are Reliable
+### PR Description Methods - Summary
 
-| Method | Best For | Reliability | Notes |
-|--------|----------|-------------|-------|
-| **create_file** | AI assistants | ⭐⭐⭐⭐⭐ | Most reliable for AI environments |
-| **printf** | Human terminal use | ⭐⭐⭐⭐⭐ | No escaping issues |
-| **Env Var** | Short content | ⭐⭐⭐⭐ | Limited by shell length |
-| **Stdin** | Dynamic content | ⭐⭐⭐⭐⭐ | Great for piping |
+| Method | Best For | Reliability | Recommended for AI |
+|--------|----------|-------------|-------------------|
+| **create_file** | All content sizes | ⭐⭐⭐⭐⭐ | ✅ **ONLY for AI** |
+| **printf** | Manual terminal use | ⭐⭐⭐⭐ | ❌ No |
+| **Env Var** | Short manual content | ⭐⭐⭐ | ❌ No |
+| **Stdin** | Manual dynamic content | ⭐⭐⭐⭐ | ❌ No |
+
+**KEY RULE**: AI assistants MUST use `create_file()` method. Other methods are for manual terminal use only.
 
 ### Language Control
 
