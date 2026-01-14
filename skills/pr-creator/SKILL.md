@@ -38,9 +38,9 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
 
 3. **Execute** (AI assistants should use create_file):
    
-   **Method A - create_file tool (BEST for AI assistants)**:
+   **⭐ RECOMMENDED: create_file tool (ONLY reliable method for AI)**:
    ```python
-   # AI should use create_file tool - most reliable
+   # AI MUST use create_file tool - this is the ONLY reliable way
    create_file(
      filePath=".github/pr-description.tmp",
      content="""## 功能说明
@@ -50,54 +50,26 @@ This is an **AI-first skill**. The AI assistant orchestrates the workflow:
 - 功能 1"""
    )
    
-   # Then execute with env vars
+   # Then execute with env vars and correct path
    run_in_terminal(
-     command="bash create-pr.sh",
+     command="bash skills/pr-creator/scripts/create-pr.sh",
      env={
        "PR_BRANCH": "feat/my-feature",
        "PR_TITLE_AI": "feat: 新增功能",
        "PR_LANG": "zh-CN",
        "VERSION_BUMP_AI": "minor",
-       ...
+       "CURRENT_VERSION": "1.0.0",
+       "NEW_VERSION": "1.1.0",
+       "VERSION_FILE": "manifest.json"
      }
    )
    ```
 
-   **Why create_file for AI?** No shell issues, reliable in AI environments
-
-   **Method B - printf (for manual terminal use)**:
-   ```bash
-   # When humans execute in terminal
-   mkdir -p .github
-   printf '%s\n' \
-     "## 功能说明" \
-     "..." > .github/pr-description.tmp
-   
-   PR_BRANCH="feat/my-feature" \
-   PR_TITLE_AI="feat: 新增功能" \
-   PR_LANG="zh-CN" \
-   bash create-pr.sh
-   ```
-
-   **Method C - Environment Variable (short content)**:
-   ```bash
-   PR_BRANCH="feat/my-feature" \
-   PR_TITLE_AI="feat: 新增功能" \
-   PR_BODY_AI="简短的 PR 描述" \
-   PR_LANG="zh-CN" \
-   VERSION_BUMP_AI="minor" \
-   ... bash create-pr.sh
-   ```
-
-   **Method D - Stdin (dynamic content)**:
-   ```bash
-   echo "PR description" | \
-   PR_BRANCH="feat/my-feature" \
-   PR_TITLE_AI="feat: 新增功能" \
-   PR_LANG="zh-CN" \
-   VERSION_BUMP_AI="minor" \
-   ... bash create-pr.sh
-   ```
+   **Why create_file is the ONLY option for AI?** 
+   - No shell escaping issues
+   - No heredoc conflicts
+   - Reliable in all environments
+   - **Other methods (printf, env var, stdin) are NOT recommended for AI**
 
    **Important**: Always set `PR_LANG` to match your conversation language!
 
@@ -118,18 +90,42 @@ The AI will automatically invoke this skill to:
 4. Create/update the PR
 5. Report success
 
-### Direct Script Execution
+### For Development (Repository Root)
+
+When working in the repository root directory:
 
 ```bash
-# Set all decisions, then run
+# Method 1: Using create_file (recommended for AI)
+create_file(
+  filePath=".github/pr-description.tmp",
+  content="Long description here..."
+)
+
+run_in_terminal(
+  command="bash skills/pr-creator/scripts/create-pr.sh",
+  env={...}
+)
+
+# Method 2: Direct manual execution
 PR_BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
 PR_TITLE_AI="feat: my feature" \
-PR_BODY_AI="..." \
 VERSION_BUMP_AI="minor" \
 CURRENT_VERSION="1.0.0" \
 NEW_VERSION="1.1.0" \
 VERSION_FILE="package.json" \
 bash skills/pr-creator/scripts/create-pr.sh
+```
+
+### After Installation via OpenSkills
+
+When skill is installed via OpenSkills (`~/.claude/skills/pr-creator`):
+
+```bash
+# Use relative path 'scripts/create-pr.sh' (OpenSkills will cd into skill directory)
+PR_BRANCH="feat/my-feature" \
+PR_TITLE_AI="feat: my feature" \
+... \
+bash scripts/create-pr.sh
 ```
 
 ## Capabilities
@@ -174,38 +170,51 @@ AI: Analyze branch
   ↓
 AI: Generate decisions
   - PR_TITLE_AI from latest commit
-  - PR_BODY_AI with detailed description
+  - PR_BODY_AI with detailed description (in memory)
   - VERSION_BUMP_AI based on commits
   ↓
-AI: Execute script
-  bash create-pr.sh (with all env vars)
+AI: Create PR description file (CRITICAL!)
+  create_file(
+    filePath=".github/pr-description.tmp",
+    content=<AI-generated description>
+  )
+  ↓
+AI: Execute script with FULL PATH
+  bash skills/pr-creator/scripts/create-pr.sh (from repo root)
+  OR
+  bash scripts/create-pr.sh (when already in skill directory)
   ↓
 Script: Apply changes
-  1. Update version file (if bump != skip)
-  2. Create/update PR via gh CLI
-  3. Report success
+  1. Read .github/pr-description.tmp (created by create_file)
+  2. Update version file (if bump != skip)
+  3. Create/update PR via gh CLI
+  4. Add attribution footer automatically
+  5. Report success
   ↓
-Done! PR created/updated
+Done! PR created/updated with proper footer
 ```
 
 ## Environment Variables
 
 Required for script execution:
 
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `PR_BRANCH` | Current branch | `feat/new-feature` |
-| `PR_TITLE_AI` | PR title (respects PR_LANG) | `feat: add auth` |
-| `PR_BODY_AI` | PR description | `## Overview...` |
-| `VERSION_BUMP_AI` | Version action | `minor`, `patch`, `skip` |
-| `CURRENT_VERSION` | Before version | `1.0.0` |
-| `NEW_VERSION` | After version | `1.1.0` |
-| `VERSION_FILE` | Version location | `package.json` |
-| `PR_LANG` *(optional)* | PR language | `zh-CN`, `en` |
-| `DRY_RUN` *(optional)* | Preview without changes | `true`, `false` |
+| Variable | Purpose | Example | Required |
+|----------|---------|---------|----------|
+| `PR_BRANCH` | Current branch | `feat/new-feature` | ✅ Yes |
+| `PR_TITLE_AI` | PR title (respects PR_LANG) | `feat: add auth` | ✅ Yes |
+| `VERSION_BUMP_AI` | Version action | `minor`, `patch`, `skip` | ✅ Yes |
+| `CURRENT_VERSION` | Before version | `1.0.0` | ✅ Yes |
+| `NEW_VERSION` | After version | `1.1.0` | ✅ Yes |
+| `VERSION_FILE` | Version location | `package.json` | ✅ Yes |
+| `PR_LANG` *(optional)* | PR language | `zh-CN`, `en` | ❌ No |
+| `DRY_RUN` *(optional)* | Preview without changes | `true`, `false` | ❌ No |
+| `.github/pr-description.tmp` | PR body (file) | Created via `create_file` | ✅ Yes (for AI) |
+| `PR_BODY_AI` | PR body (env var) | Short text | ⚠️ Only for manual use |
 
-**Notes**: 
-- For long PR descriptions, create `.github/pr-description.tmp` instead of passing via `PR_BODY_AI` - the script automatically reads it if present.
+**CRITICAL NOTES**: 
+- **For AI assistants**: ALWAYS use `create_file()` to create `.github/pr-description.tmp` - this is the ONLY reliable method
+- **For manual terminal use**: Can use `PR_BODY_AI` environment variable (not recommended for AI)
+- The script automatically reads from `.github/pr-description.tmp` if it exists
 - Set `DRY_RUN=true` to preview PR creation without modifying files or creating PR
 
 ### Dry-Run Mode
@@ -213,6 +222,13 @@ Required for script execution:
 Test the script without making any changes to your repository:
 
 ```bash
+# Step 1: Create description file using create_file (ONLY reliable method)
+create_file(
+  filePath=".github/pr-description.tmp",
+  content="## Features\n- Feature 1\n- Feature 2"
+)
+
+# Step 2: Run with DRY_RUN=true to preview
 DRY_RUN=true \
 PR_BRANCH="feat/my-feature" \
 PR_TITLE_AI="feat: My feature" \
@@ -221,7 +237,7 @@ VERSION_BUMP_AI="minor" \
 CURRENT_VERSION="1.0.0" \
 NEW_VERSION="1.1.0" \
 VERSION_FILE="package.json" \
-bash create-pr.sh
+bash scripts/pr-creator/scripts/create-pr.sh
 ```
 
 **Output**: Shows what would happen (version updates, commits, PR creation) without executing
@@ -293,17 +309,39 @@ This script:
 **Workflow for development**:
 ```bash
 # 1. Make changes to skills/pr-creator/scripts/create-pr.sh
-# 2. Test with dry-run mode
-DRY_RUN=true PR_BRANCH="..." PR_TITLE_AI="..." bash skills/pr-creator/scripts/create-pr.sh
 
-# 3. Test with actual PR creation (or continue with dry-run)
-PR_BRANCH="..." PR_TITLE_AI="..." bash skills/pr-creator/scripts/create-pr.sh
+# 2. Create PR description file using create_file (ONLY reliable method!)
+create_file(
+  filePath=".github/pr-description.tmp",
+  content="Description for testing..."
+)
 
-# 4. Restore original version when done
+# 3. Test with dry-run mode
+DRY_RUN=true \
+PR_BRANCH="test-branch" \
+PR_TITLE_AI="Test title" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="manifest.json" \
+bash skills/pr-creator/scripts/create-pr.sh
+
+# 4. If preview looks good, run actual PR creation
+DRY_RUN=false \
+PR_BRANCH="test-branch" \
+PR_TITLE_AI="Test title" \
+VERSION_BUMP_AI="minor" \
+CURRENT_VERSION="1.0.0" \
+NEW_VERSION="1.1.0" \
+VERSION_FILE="manifest.json" \
+bash skills/pr-creator/scripts/create-pr.sh
+
+# 5. Restore original version when done
 cp -r ~/.claude/skills/pr-creator.backup.YYYYMMDD_HHMMSS ~/.claude/skills/pr-creator
 ```
 
 **Benefits**:
 - Test changes without committing to repository
 - Avoid "can't test without committing, can't commit without testing" catch-22
+- Use create_file for reliable PR description creation
 - Safe backup/restore workflow
